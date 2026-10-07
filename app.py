@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
-import matplotlib.pyplot as plt
 
 
 # ============================================================
@@ -17,7 +15,7 @@ st.set_page_config(
 
 
 # ============================================================
-# LOAD MODEL AND FEATURES
+# LOAD MODEL
 # ============================================================
 
 model = joblib.load("aircraft_rul_random_forest.pkl")
@@ -60,11 +58,12 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("📌 About")
+    st.subheader("📌 Project")
 
     st.write(
-        "This application predicts the Remaining Useful Life "
-        "(RUL) of an aircraft engine using Machine Learning."
+        "Aircraft Engine Remaining Useful Life "
+        "(RUL) Prediction and Condition Monitoring "
+        "using Machine Learning."
     )
 
     st.markdown("---")
@@ -72,8 +71,8 @@ with st.sidebar:
     st.subheader("🤖 Model")
 
     st.write("Random Forest Regressor")
-    st.write("Model Features: 18")
-    st.write("User Inputs: 6")
+    st.write("18 model features")
+    st.write("6 user inputs")
 
     st.markdown("---")
 
@@ -85,11 +84,12 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("📈 Dashboard")
+    st.subheader("📈 Output")
 
-    st.write("RUL Analysis")
-    st.write("Feature Importance")
-    st.write("Prediction Performance")
+    st.write("Remaining Useful Life")
+    st.write("Engine Condition")
+    st.write("Risk Level")
+    st.write("Maintenance Recommendation")
 
 
 # ============================================================
@@ -103,18 +103,19 @@ st.subheader(
 )
 
 st.write(
-    "Enter the current engine parameters to estimate "
-    "the Remaining Useful Life (RUL)."
+    "Enter the current engine parameters below to "
+    "estimate the remaining useful life of the engine."
 )
 
 
 # ============================================================
-# ENGINE INPUT SECTION
+# ENGINE PARAMETERS
 # ============================================================
 
 st.markdown("---")
 
 st.subheader("🔧 Engine Parameters")
+
 
 col1, col2, col3 = st.columns(3)
 
@@ -134,7 +135,7 @@ with col1:
     )
 
     st.caption(
-        "Range: 1 – 362 | Typical value: 104"
+        "Range: 1 – 362 | Typical: 104"
     )
 
 
@@ -153,7 +154,7 @@ with col2:
     )
 
     st.caption(
-        "Range: 46.850 – 48.530 | Typical value: 47.510"
+        "Range: 46.850 – 48.530 | Typical: 47.510"
     )
 
 
@@ -172,7 +173,7 @@ with col3:
     )
 
     st.caption(
-        "Range: 9021.730 – 9244.590 | Typical value: 9060.660"
+        "Range: 9021.730 – 9244.590 | Typical: 9060.660"
     )
 
 
@@ -194,7 +195,7 @@ with col4:
     )
 
     st.caption(
-        "Range: 1382.250 – 1441.490 | Typical value: 1408.040"
+        "Range: 1382.250 – 1441.490 | Typical: 1408.040"
     )
 
 
@@ -213,7 +214,7 @@ with col5:
     )
 
     st.caption(
-        "Range: 8099.940 – 8293.720 | Typical value: 8140.540"
+        "Range: 8099.940 – 8293.720 | Typical: 8140.540"
     )
 
 
@@ -232,23 +233,12 @@ with col6:
     )
 
     st.caption(
-        "Range: 518.690 – 523.380 | Typical value: 521.480"
+        "Range: 518.690 – 523.380 | Typical: 521.480"
     )
 
 
 # ============================================================
-# SENSOR INFORMATION
-# ============================================================
-
-st.info(
-    "ℹ️ Sensor values are dataset-specific indicators from "
-    "NASA C-MAPSS. They are anonymized and should not be "
-    "interpreted as physical PSI, °C, bar, or other engineering units."
-)
-
-
-# ============================================================
-# PREDICTION BUTTON
+# PREDICT BUTTON
 # ============================================================
 
 st.markdown("---")
@@ -284,7 +274,7 @@ if predict_button:
 
 
     # --------------------------------------------------------
-    # MODEL PREDICTION
+    # PREDICT RUL
     # --------------------------------------------------------
 
     predicted_rul = model.predict(input_df)[0]
@@ -294,9 +284,9 @@ if predict_button:
     rul_cycles = round(predicted_rul)
 
 
-    # --------------------------------------------------------
-    # CONDITION CLASSIFICATION
-    # --------------------------------------------------------
+    # ========================================================
+    # ENGINE CONDITION
+    # ========================================================
 
     if predicted_rul > 50:
 
@@ -305,11 +295,17 @@ if predict_button:
         icon = "🟢"
 
         recommendation = (
-            "Continue routine monitoring and follow the "
-            "scheduled maintenance plan."
+            "Continue routine monitoring and follow "
+            "the scheduled maintenance plan."
+        )
+
+        status_message = (
+            "The engine is currently operating within "
+            "a healthy RUL range."
         )
 
         progress_value = 100
+
 
     elif predicted_rul >= 20:
 
@@ -322,9 +318,15 @@ if predict_button:
             "preventive maintenance."
         )
 
+        status_message = (
+            "The engine shows a moderate remaining life. "
+            "Preventive maintenance should be planned."
+        )
+
         progress_value = int(
             (predicted_rul / 50) * 100
         )
+
 
     else:
 
@@ -335,6 +337,11 @@ if predict_button:
         recommendation = (
             "Immediate engine inspection is recommended. "
             "Prioritize maintenance planning."
+        )
+
+        status_message = (
+            "The engine has limited remaining useful life. "
+            "Immediate attention is recommended."
         )
 
         progress_value = int(
@@ -349,503 +356,197 @@ if predict_button:
 
 
     # ========================================================
-    # PREDICTION RESULTS
+    # ENGINE MONITORING DASHBOARD
     # ========================================================
 
     st.markdown("---")
 
-    st.subheader("📊 Prediction Results")
+    st.title("📊 Engine Health Dashboard")
 
-    result_col1, result_col2, result_col3 = st.columns(3)
+    st.write(
+        "Current engine condition based on the predicted "
+        "Remaining Useful Life."
+    )
 
 
-    with result_col1:
+    # ========================================================
+    # MAIN KPI CARDS
+    # ========================================================
+
+    kpi1, kpi2, kpi3 = st.columns(3)
+
+
+    with kpi1:
 
         st.metric(
-            "Remaining Useful Life",
-            f"{rul_cycles} cycles"
+            label="✈️ Remaining Useful Life",
+            value=f"{rul_cycles} cycles"
         )
 
 
-    with result_col2:
+    with kpi2:
 
         st.metric(
-            "Engine Condition",
-            f"{icon} {condition}"
+            label="Engine Condition",
+            value=f"{icon} {condition}"
         )
 
 
-    with result_col3:
+    with kpi3:
 
         st.metric(
-            "Risk Level",
-            risk
+            label="⚠️ Risk Level",
+            value=risk
         )
 
 
     # ========================================================
-    # RUL VISUALIZATION
+    # ENGINE LIFE VISUAL
     # ========================================================
 
-    st.markdown("### 🔋 Engine Life Status")
+    st.markdown("---")
+
+    st.subheader("🔋 Remaining Engine Life")
 
     st.progress(progress_value)
 
     st.caption(
-        f"Estimated remaining life: {rul_cycles} cycles"
+        f"Estimated remaining useful life: "
+        f"{rul_cycles} cycles"
     )
+
+
+    # ========================================================
+    # CONDITION STATUS
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        f"{icon} Engine Status: {condition}"
+    )
+
+    if condition == "Healthy":
+
+        st.success(
+            f"**Healthy Condition**\n\n"
+            f"{status_message}"
+        )
+
+    elif condition == "Warning":
+
+        st.warning(
+            f"**Warning Condition**\n\n"
+            f"{status_message}"
+        )
+
+    else:
+
+        st.error(
+            f"**Critical Condition**\n\n"
+            f"{status_message}"
+        )
 
 
     # ========================================================
     # MAINTENANCE RECOMMENDATION
     # ========================================================
 
-    st.markdown("### 🛠️ Maintenance Recommendation")
+    st.markdown("---")
 
-    if condition == "Healthy":
+    st.subheader("🛠️ Maintenance Recommendation")
 
-        st.success(
-            f"🟢 **Healthy Condition**\n\n"
-            f"{recommendation}"
-        )
-
-    elif condition == "Warning":
-
-        st.warning(
-            f"🟡 **Warning Condition**\n\n"
-            f"{recommendation}"
-        )
-
-    else:
-
-        st.error(
-            f"🔴 **Critical Condition**\n\n"
-            f"{recommendation}"
-        )
+    st.info(
+        recommendation
+    )
 
 
     # ========================================================
-    # INPUT SUMMARY
+    # CURRENT PARAMETERS DASHBOARD
     # ========================================================
 
     st.markdown("---")
 
-    st.subheader("📋 Input Summary")
+    st.subheader("📋 Current Engine Parameters")
 
-    summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+    p1, p2, p3 = st.columns(3)
+
+
+    with p1:
+
+        st.metric(
+            "Engine Cycle",
+            f"{cycle:.0f}"
+        )
+
+        st.metric(
+            "Thermal Indicator",
+            f"{sensor_11:.3f}"
+        )
+
+
+    with p2:
+
+        st.metric(
+            "Pressure/Performance",
+            f"{sensor_9:.3f}"
+        )
+
+        st.metric(
+            "Engine Health",
+            f"{sensor_4:.3f}"
+        )
+
+
+    with p3:
+
+        st.metric(
+            "Performance Indicator",
+            f"{sensor_14:.3f}"
+        )
+
+        st.metric(
+            "Condition Indicator",
+            f"{sensor_12:.3f}"
+        )
+
+
+    # ========================================================
+    # DECISION SUMMARY
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader("📝 Monitoring Summary")
+
+    summary_col1, summary_col2 = st.columns(2)
 
 
     with summary_col1:
 
         st.write(
-            f"**Engine Cycle:** {cycle:.0f}"
+            f"**Predicted RUL:** {rul_cycles} cycles"
         )
 
         st.write(
-            f"**Thermal Indicator:** {sensor_11:.3f}"
+            f"**Condition:** {icon} {condition}"
+        )
+
+        st.write(
+            f"**Risk Level:** {risk}"
         )
 
 
     with summary_col2:
 
         st.write(
-            f"**Pressure/Performance Indicator:** "
-            f"{sensor_9:.3f}"
+            "**Recommended Action:**"
         )
 
         st.write(
-            f"**Engine Health Indicator:** "
-            f"{sensor_4:.3f}"
+            recommendation
         )
-
-
-    with summary_col3:
-
-        st.write(
-            f"**Performance Indicator:** "
-            f"{sensor_14:.3f}"
-        )
-
-        st.write(
-            f"**Condition Indicator:** "
-            f"{sensor_12:.3f}"
-        )
-
-
-# ============================================================
-# ANALYTICS DASHBOARD
-# ============================================================
-
-st.markdown("---")
-
-st.title("📈 Analytics Dashboard")
-
-st.write(
-    "Model analysis and performance visualizations "
-    "based on the project dataset and trained Random Forest model."
-)
-
-
-# ============================================================
-# LOAD PREDICTION DATA
-# ============================================================
-
-prediction_file = "aircraft_rul_predictions.csv"
-
-if os.path.exists(prediction_file):
-
-    predictions_df = pd.read_csv(
-        prediction_file
-    )
-
-else:
-
-    predictions_df = None
-
-
-# ============================================================
-# DASHBOARD METRICS
-# ============================================================
-
-metric1, metric2, metric3, metric4 = st.columns(4)
-
-
-with metric1:
-
-    st.metric(
-        "Model",
-        "Random Forest"
-    )
-
-
-with metric2:
-
-    st.metric(
-        "Model Features",
-        "18"
-    )
-
-
-with metric3:
-
-    st.metric(
-        "User Inputs",
-        "6"
-    )
-
-
-with metric4:
-
-    st.metric(
-        "Dataset",
-        "C-MAPSS FD001"
-    )
-
-
-# ============================================================
-# FEATURE IMPORTANCE
-# ============================================================
-
-st.markdown("---")
-
-st.subheader("🎯 Feature Importance")
-
-importance_df = pd.DataFrame({
-    "Feature": features,
-    "Importance": model.feature_importances_
-})
-
-importance_df = importance_df.sort_values(
-    "Importance",
-    ascending=True
-)
-
-fig1, ax1 = plt.subplots(
-    figsize=(9, 6)
-)
-
-ax1.barh(
-    importance_df["Feature"],
-    importance_df["Importance"]
-)
-
-ax1.set_xlabel(
-    "Importance"
-)
-
-ax1.set_ylabel(
-    "Feature"
-)
-
-ax1.set_title(
-    "Random Forest Feature Importance"
-)
-
-plt.tight_layout()
-
-st.pyplot(fig1)
-
-plt.close(fig1)
-
-
-# ============================================================
-# ACTUAL VS PREDICTED RUL
-# ============================================================
-
-if predictions_df is not None:
-
-    st.markdown("---")
-
-    st.subheader("🎯 Actual vs Predicted RUL")
-
-    # Try to identify the correct columns
-    actual_column = None
-    predicted_column = None
-
-    for col in predictions_df.columns:
-
-        col_lower = col.lower()
-
-        if (
-            "actual" in col_lower
-            and "rul" in col_lower
-        ):
-            actual_column = col
-
-        if (
-            "predicted" in col_lower
-            and "rul" in col_lower
-        ):
-            predicted_column = col
-
-
-    if actual_column and predicted_column:
-
-        fig2, ax2 = plt.subplots(
-            figsize=(9, 6)
-        )
-
-        ax2.scatter(
-            predictions_df[actual_column],
-            predictions_df[predicted_column],
-            alpha=0.5
-        )
-
-        min_value = min(
-            predictions_df[actual_column].min(),
-            predictions_df[predicted_column].min()
-        )
-
-        max_value = max(
-            predictions_df[actual_column].max(),
-            predictions_df[predicted_column].max()
-        )
-
-        ax2.plot(
-            [min_value, max_value],
-            [min_value, max_value],
-            linestyle="--"
-        )
-
-        ax2.set_xlabel(
-            "Actual RUL"
-        )
-
-        ax2.set_ylabel(
-            "Predicted RUL"
-        )
-
-        ax2.set_title(
-            "Actual vs Predicted Remaining Useful Life"
-        )
-
-        plt.tight_layout()
-
-        st.pyplot(fig2)
-
-        plt.close(fig2)
-
-    else:
-
-        st.warning(
-            "Actual and predicted RUL columns were not "
-            "identified in aircraft_rul_predictions.csv."
-        )
-
-
-# ============================================================
-# RUL DISTRIBUTION
-# ============================================================
-
-if predictions_df is not None:
-
-    st.markdown("---")
-
-    st.subheader("📊 RUL Distribution")
-
-    actual_column = None
-
-    for col in predictions_df.columns:
-
-        if (
-            "actual" in col.lower()
-            and "rul" in col.lower()
-        ):
-
-            actual_column = col
-            break
-
-
-    if actual_column:
-
-        fig3, ax3 = plt.subplots(
-            figsize=(9, 5)
-        )
-
-        ax3.hist(
-            predictions_df[actual_column].dropna(),
-            bins=30
-        )
-
-        ax3.set_xlabel(
-            "Remaining Useful Life (Cycles)"
-        )
-
-        ax3.set_ylabel(
-            "Number of Engines"
-        )
-
-        ax3.set_title(
-            "Distribution of Actual RUL"
-        )
-
-        plt.tight_layout()
-
-        st.pyplot(fig3)
-
-        plt.close(fig3)
-
-
-# ============================================================
-# CONDITION DISTRIBUTION
-# ============================================================
-
-if predictions_df is not None:
-
-    st.markdown("---")
-
-    st.subheader("🟢🟡🔴 Engine Condition Distribution")
-
-    predicted_column = None
-
-    for col in predictions_df.columns:
-
-        if (
-            "predicted" in col.lower()
-            and "rul" in col.lower()
-        ):
-
-            predicted_column = col
-            break
-
-
-    if predicted_column:
-
-        condition_data = predictions_df[
-            predicted_column
-        ].copy()
-
-        condition_data = condition_data.clip(
-            lower=0
-        )
-
-
-        def classify_condition(rul):
-
-            if rul > 50:
-                return "Healthy"
-
-            elif rul >= 20:
-                return "Warning"
-
-            else:
-                return "Critical"
-
-
-        condition_counts = (
-            condition_data
-            .apply(classify_condition)
-            .value_counts()
-        )
-
-
-        fig4, ax4 = plt.subplots(
-            figsize=(8, 5)
-        )
-
-        ax4.bar(
-            condition_counts.index,
-            condition_counts.values
-        )
-
-        ax4.set_xlabel(
-            "Engine Condition"
-        )
-
-        ax4.set_ylabel(
-            "Number of Predictions"
-        )
-
-        ax4.set_title(
-            "Predicted Engine Condition Distribution"
-        )
-
-        plt.tight_layout()
-
-        st.pyplot(fig4)
-
-        plt.close(fig4)
-
-
-# ============================================================
-# PROJECT INSIGHTS
-# ============================================================
-
-st.markdown("---")
-
-st.subheader("💡 Project Insights")
-
-insight_col1, insight_col2 = st.columns(2)
-
-
-with insight_col1:
-
-    st.markdown(
-        """
-        **Key Model Insights**
-
-        - Random Forest is used for RUL regression.
-        - 18 features are used by the trained model.
-        - Engine cycle is an important indicator of engine aging.
-        - Sensor measurements provide additional information
-          about engine condition.
-        """
-    )
-
-
-with insight_col2:
-
-    st.markdown(
-        """
-        **Maintenance Strategy**
-
-        - 🟢 **Healthy:** Continue routine monitoring.
-        - 🟡 **Warning:** Increase monitoring and plan
-          preventive maintenance.
-        - 🔴 **Critical:** Prioritize inspection and
-          maintenance planning.
-        """
-    )
 
 
 # ============================================================
@@ -860,7 +561,6 @@ st.caption(
 )
 
 st.caption(
-    "⚠️ This application is based on the NASA C-MAPSS "
-    "simulated dataset and is intended for educational "
-    "and project demonstration purposes."
+    "Aircraft Engine Remaining Useful Life Prediction "
+    "and Condition Monitoring System"
 )
