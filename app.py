@@ -18,7 +18,7 @@ model = joblib.load("aircraft_rul_random_forest.pkl")
 features = joblib.load("rul_features.pkl")
 
 # --------------------------------------------------
-# Styling
+# Custom styling
 # --------------------------------------------------
 st.markdown("""
 <style>
@@ -78,7 +78,9 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="subtitle">Predictive Maintenance & Engine Condition Monitoring</div>',
+    '<div class="subtitle">'
+    'Predictive Maintenance & Engine Condition Monitoring'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -103,9 +105,9 @@ with col1:
         min_value=1,
         max_value=362,
         value=104,
-        step=1,
-        help="Valid observed range: 1–362 cycles."
+        step=1
     )
+    st.caption("Observed range: **1 – 362 cycles**")
 
 with col2:
     sensor_11 = st.number_input(
@@ -114,9 +116,9 @@ with col2:
         max_value=48.530,
         value=47.510,
         step=0.001,
-        format="%.3f",
-        help="Observed dataset range: 46.850–48.530."
+        format="%.3f"
     )
+    st.caption("Observed range: **46.850 – 48.530**")
 
 with col3:
     sensor_9 = st.number_input(
@@ -125,9 +127,9 @@ with col3:
         max_value=9244.590,
         value=9060.660,
         step=0.001,
-        format="%.3f",
-        help="Observed dataset range: 9021.730–9244.590."
+        format="%.3f"
     )
+    st.caption("Observed range: **9021.730 – 9244.590**")
 
 col4, col5, col6 = st.columns(3)
 
@@ -138,9 +140,9 @@ with col4:
         max_value=1441.490,
         value=1408.040,
         step=0.001,
-        format="%.3f",
-        help="Observed dataset range: 1382.250–1441.490."
+        format="%.3f"
     )
+    st.caption("Observed range: **1382.250 – 1441.490**")
 
 with col5:
     sensor_14 = st.number_input(
@@ -149,9 +151,9 @@ with col5:
         max_value=8293.720,
         value=8140.540,
         step=0.001,
-        format="%.3f",
-        help="Observed dataset range: 8099.940–8293.720."
+        format="%.3f"
     )
+    st.caption("Observed range: **8099.940 – 8293.720**")
 
 with col6:
     sensor_12 = st.number_input(
@@ -160,12 +162,12 @@ with col6:
         max_value=523.380,
         value=521.480,
         step=0.001,
-        format="%.3f",
-        help="Observed dataset range: 518.690–523.380."
+        format="%.3f"
     )
+    st.caption("Observed range: **518.690 – 523.380**")
 
 st.caption(
-    "Note: Sensor values are dataset-specific indicators and are not "
+    "⚠️ Sensor values are dataset-specific indicators and are not "
     "physical PSI, °C, bar, or other engineering units."
 )
 
@@ -174,9 +176,14 @@ st.caption(
 # --------------------------------------------------
 st.divider()
 
-if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
+if st.button(
+    "🔮 Predict Remaining Useful Life",
+    use_container_width=True
+):
 
-    # Median values calculated from the training dataset
+    # --------------------------------------------------
+    # Median values from the training dataset
+    # --------------------------------------------------
     default_values = {
         "cycle": 104.0,
         "op_setting_1": 0.0,
@@ -198,7 +205,9 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
         "sensor_21": 23.2979
     }
 
-    # Replace median values with user inputs
+    # --------------------------------------------------
+    # Replace selected values with user inputs
+    # --------------------------------------------------
     default_values["cycle"] = cycle
     default_values["sensor_11"] = sensor_11
     default_values["sensor_9"] = sensor_9
@@ -206,18 +215,24 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
     default_values["sensor_14"] = sensor_14
     default_values["sensor_12"] = sensor_12
 
-    # Create input in exact model feature order
+    # --------------------------------------------------
+    # Create model input in exact feature order
+    # --------------------------------------------------
     input_data = pd.DataFrame(
         [[default_values[feature] for feature in features]],
         columns=features
     )
 
+    # --------------------------------------------------
     # Predict RUL
+    # --------------------------------------------------
     predicted_rul = float(model.predict(input_data)[0])
+
+    # Prevent negative displayed RUL
     predicted_rul = max(0, predicted_rul)
 
     # --------------------------------------------------
-    # Condition classification
+    # Determine engine condition
     # --------------------------------------------------
     if predicted_rul > 50:
         condition = "Healthy"
@@ -230,18 +245,20 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
         condition = "Warning"
         risk = "Medium"
         recommendation = (
-            "Increase monitoring frequency and schedule preventive maintenance."
+            "Increase monitoring frequency and schedule preventive "
+            "maintenance."
         )
 
     else:
         condition = "Critical"
         risk = "High"
         recommendation = (
-            "Immediate inspection recommended. Prioritize maintenance planning."
+            "Immediate inspection recommended. Prioritize maintenance "
+            "planning."
         )
 
     # --------------------------------------------------
-    # Results
+    # Display results
     # --------------------------------------------------
     st.header("📊 Prediction Result")
 
@@ -265,6 +282,9 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
             risk
         )
 
+    # --------------------------------------------------
+    # Maintenance recommendation
+    # --------------------------------------------------
     st.subheader("🛠️ Maintenance Recommendation")
 
     if condition == "Healthy":
