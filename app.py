@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 
 
@@ -8,7 +9,7 @@ import joblib
 # ============================================================
 
 st.set_page_config(
-    page_title="Aircraft Engine RUL Monitor",
+    page_title="Aircraft Engine Predictive Maintenance",
     page_icon="✈️",
     layout="wide"
 )
@@ -49,6 +50,49 @@ default_values = {
 
 
 # ============================================================
+# SENSOR NORMAL RANGES
+# ============================================================
+
+sensor_ranges = {
+
+    "sensor_4": {
+        "name": "LPT Outlet Temperature",
+        "min": 1382.250,
+        "max": 1441.490,
+        "median": 1408.040
+    },
+
+    "sensor_9": {
+        "name": "Physical Core Speed",
+        "min": 9021.730,
+        "max": 9244.590,
+        "median": 9060.660
+    },
+
+    "sensor_11": {
+        "name": "HPC Outlet Static Pressure",
+        "min": 46.850,
+        "max": 48.530,
+        "median": 47.510
+    },
+
+    "sensor_12": {
+        "name": "Fuel Flow / Pressure Ratio",
+        "min": 518.690,
+        "max": 523.380,
+        "median": 521.480
+    },
+
+    "sensor_14": {
+        "name": "Corrected Core Speed",
+        "min": 8099.940,
+        "max": 8293.720,
+        "median": 8140.540
+    }
+}
+
+
+# ============================================================
 # SIDEBAR
 # ============================================================
 
@@ -58,7 +102,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("📌 Project")
+    st.subheader("Project")
 
     st.write(
         "Aircraft Engine Remaining Useful Life "
@@ -68,15 +112,15 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("🤖 Model")
+    st.subheader("Machine Learning Model")
 
     st.write("Random Forest Regressor")
     st.write("18 model features")
-    st.write("6 user inputs")
+    st.write("50 decision trees")
 
     st.markdown("---")
 
-    st.subheader("📊 Dataset")
+    st.subheader("Dataset")
 
     st.write("NASA C-MAPSS FD001")
     st.write("100 training engines")
@@ -84,45 +128,51 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("📈 Output")
+    st.subheader("System Capabilities")
 
-    st.write("Remaining Useful Life")
-    st.write("Engine Condition")
-    st.write("Risk Level")
-    st.write("Maintenance Recommendation")
+    st.write("✓ RUL Prediction")
+    st.write("✓ Risk Assessment")
+    st.write("✓ Sensor Monitoring")
+    st.write("✓ Anomaly Detection")
+    st.write("✓ Maintenance Recommendation")
 
 
 # ============================================================
 # MAIN HEADER
 # ============================================================
 
-st.title("✈️ Aircraft Engine RUL Prediction")
+st.title("✈️ Aircraft Engine Predictive Maintenance")
 
 st.subheader(
-    "Predictive Maintenance & Engine Condition Monitoring"
+    "Remaining Useful Life Prediction & Condition Monitoring"
 )
 
 st.write(
-    "Enter the current engine parameters below to "
-    "estimate the remaining useful life of the engine."
+    "Enter the current engine operating parameters to "
+    "estimate remaining useful life, assess engine risk, "
+    "and generate a maintenance recommendation."
 )
 
 
 # ============================================================
-# ENGINE PARAMETERS
+# INPUT SECTION
 # ============================================================
 
 st.markdown("---")
 
-st.subheader("🔧 Engine Parameters")
+st.subheader("🔧 Current Engine Parameters")
+
+st.caption(
+    "Enter values within the observed FD001 dataset ranges."
+)
 
 
 col1, col2, col3 = st.columns(3)
 
 
-# ------------------------------------------------------------
+# ============================================================
 # ENGINE CYCLE
-# ------------------------------------------------------------
+# ============================================================
 
 with col1:
 
@@ -135,18 +185,18 @@ with col1:
     )
 
     st.caption(
-        "Range: 1 – 362 | Typical: 104"
+        "Operating cycle: 1 – 362"
     )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SENSOR 11
-# ------------------------------------------------------------
+# ============================================================
 
 with col2:
 
     sensor_11 = st.number_input(
-        "Thermal Indicator (Sensor 11)",
+        "HPC Outlet Static Pressure (Sensor 11)",
         min_value=46.850,
         max_value=48.530,
         value=47.510,
@@ -154,18 +204,18 @@ with col2:
     )
 
     st.caption(
-        "Range: 46.850 – 48.530 | Typical: 47.510"
+        "Ps30 | Typical: 47.510 psia"
     )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SENSOR 9
-# ------------------------------------------------------------
+# ============================================================
 
 with col3:
 
     sensor_9 = st.number_input(
-        "Pressure/Performance Indicator (Sensor 9)",
+        "Physical Core Speed (Sensor 9)",
         min_value=9021.730,
         max_value=9244.590,
         value=9060.660,
@@ -173,21 +223,21 @@ with col3:
     )
 
     st.caption(
-        "Range: 9021.730 – 9244.590 | Typical: 9060.660"
+        "Nc | Typical: 9060.660"
     )
 
 
 col4, col5, col6 = st.columns(3)
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SENSOR 4
-# ------------------------------------------------------------
+# ============================================================
 
 with col4:
 
     sensor_4 = st.number_input(
-        "Engine Health Indicator (Sensor 4)",
+        "LPT Outlet Temperature (Sensor 4)",
         min_value=1382.250,
         max_value=1441.490,
         value=1408.040,
@@ -195,18 +245,18 @@ with col4:
     )
 
     st.caption(
-        "Range: 1382.250 – 1441.490 | Typical: 1408.040"
+        "T50 | Typical: 1408.040 °R"
     )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SENSOR 14
-# ------------------------------------------------------------
+# ============================================================
 
 with col5:
 
     sensor_14 = st.number_input(
-        "Performance Indicator (Sensor 14)",
+        "Corrected Core Speed (Sensor 14)",
         min_value=8099.940,
         max_value=8293.720,
         value=8140.540,
@@ -214,18 +264,18 @@ with col5:
     )
 
     st.caption(
-        "Range: 8099.940 – 8293.720 | Typical: 8140.540"
+        "NRc | Typical: 8140.540"
     )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SENSOR 12
-# ------------------------------------------------------------
+# ============================================================
 
 with col6:
 
     sensor_12 = st.number_input(
-        "Condition Indicator (Sensor 12)",
+        "Fuel Flow / Pressure Ratio (Sensor 12)",
         min_value=518.690,
         max_value=523.380,
         value=521.480,
@@ -233,7 +283,7 @@ with col6:
     )
 
     st.caption(
-        "Range: 518.690 – 523.380 | Typical: 521.480"
+        "φ | Typical: 521.480"
     )
 
 
@@ -244,7 +294,7 @@ with col6:
 st.markdown("---")
 
 predict_button = st.button(
-    "🔍 Predict Engine RUL",
+    "🚀 Analyze Engine Condition",
     use_container_width=True
 )
 
@@ -255,9 +305,9 @@ predict_button = st.button(
 
 if predict_button:
 
-    # --------------------------------------------------------
+    # ========================================================
     # CREATE INPUT DATA
-    # --------------------------------------------------------
+    # ========================================================
 
     input_data = default_values.copy()
 
@@ -273,15 +323,43 @@ if predict_button:
     input_df = input_df[features]
 
 
-    # --------------------------------------------------------
-    # PREDICT RUL
-    # --------------------------------------------------------
+    # ========================================================
+    # RANDOM FOREST PREDICTION
+    # ========================================================
 
-    predicted_rul = model.predict(input_df)[0]
+    tree_predictions = np.array([
+        tree.predict(input_df)[0]
+        for tree in model.estimators_
+    ])
 
-    predicted_rul = max(0, predicted_rul)
+    predicted_rul = np.mean(tree_predictions)
+
+    predicted_rul = max(
+        0,
+        predicted_rul
+    )
 
     rul_cycles = round(predicted_rul)
+
+
+    # ========================================================
+    # PREDICTION UNCERTAINTY
+    # ========================================================
+
+    lower_bound = max(
+        0,
+        np.percentile(tree_predictions, 10)
+    )
+
+    upper_bound = max(
+        0,
+        np.percentile(tree_predictions, 90)
+    )
+
+    uncertainty_range = (
+        f"{round(lower_bound)} – "
+        f"{round(upper_bound)} cycles"
+    )
 
 
     # ========================================================
@@ -292,6 +370,8 @@ if predict_button:
 
         condition = "Healthy"
         risk = "Low"
+        priority = "Routine"
+
         icon = "🟢"
 
         recommendation = (
@@ -300,17 +380,29 @@ if predict_button:
         )
 
         status_message = (
-            "The engine is currently operating within "
-            "a healthy RUL range."
+            "The predicted remaining life is relatively high. "
+            "No immediate maintenance action is required."
         )
 
         progress_value = 100
+
+        risk_score = max(
+            0,
+            min(
+                round(
+                    100 - (predicted_rul / 150) * 100
+                ),
+                35
+            )
+        )
 
 
     elif predicted_rul >= 20:
 
         condition = "Warning"
         risk = "Medium"
+        priority = "Preventive"
+
         icon = "🟡"
 
         recommendation = (
@@ -319,7 +411,7 @@ if predict_button:
         )
 
         status_message = (
-            "The engine shows a moderate remaining life. "
+            "The engine has a moderate remaining useful life. "
             "Preventive maintenance should be planned."
         )
 
@@ -327,11 +419,17 @@ if predict_button:
             (predicted_rul / 50) * 100
         )
 
+        risk_score = round(
+            35 + ((50 - predicted_rul) / 30) * 30
+        )
+
 
     else:
 
         condition = "Critical"
         risk = "High"
+        priority = "Immediate"
+
         icon = "🔴"
 
         recommendation = (
@@ -348,10 +446,89 @@ if predict_button:
             (predicted_rul / 20) * 100
         )
 
+        risk_score = round(
+            65 + ((20 - predicted_rul) / 20) * 35
+        )
+
+
+    risk_score = max(
+        0,
+        min(
+            risk_score,
+            100
+        )
+    )
 
     progress_value = max(
         0,
-        min(progress_value, 100)
+        min(
+            progress_value,
+            100
+        )
+    )
+
+
+    # ========================================================
+    # SENSOR DEVIATION ANALYSIS
+    # ========================================================
+
+    sensor_values = {
+
+        "sensor_4": sensor_4,
+        "sensor_9": sensor_9,
+        "sensor_11": sensor_11,
+        "sensor_12": sensor_12,
+        "sensor_14": sensor_14
+
+    }
+
+
+    sensor_results = []
+
+
+    for sensor, value in sensor_values.items():
+
+        info = sensor_ranges[sensor]
+
+        minimum = info["min"]
+        maximum = info["max"]
+
+        median = info["median"]
+
+        range_width = maximum - minimum
+
+        deviation = abs(
+            value - median
+        ) / range_width * 100
+
+
+        if deviation < 20:
+
+            sensor_status = "Normal"
+            sensor_icon = "🟢"
+
+        elif deviation < 40:
+
+            sensor_status = "Moderate Deviation"
+            sensor_icon = "🟡"
+
+        else:
+
+            sensor_status = "High Deviation"
+            sensor_icon = "🔴"
+
+
+        sensor_results.append({
+
+            "Sensor": info["name"],
+            "Reading": value,
+            "Status": f"{sensor_icon} {sensor_status}"
+
+        })
+
+
+    sensor_df = pd.DataFrame(
+        sensor_results
     )
 
 
@@ -364,8 +541,7 @@ if predict_button:
     st.title("📊 Engine Health Dashboard")
 
     st.write(
-        "Current engine condition based on the predicted "
-        "Remaining Useful Life."
+        "AI-based assessment of the current engine operating condition."
     )
 
 
@@ -373,51 +549,96 @@ if predict_button:
     # MAIN KPI CARDS
     # ========================================================
 
-    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
 
     with kpi1:
 
         st.metric(
-            label="✈️ Remaining Useful Life",
-            value=f"{rul_cycles} cycles"
+            "✈️ Remaining Useful Life",
+            f"{rul_cycles} cycles"
         )
 
 
     with kpi2:
 
         st.metric(
-            label="Engine Condition",
-            value=f"{icon} {condition}"
+            "Engine Condition",
+            f"{icon} {condition}"
         )
 
 
     with kpi3:
 
         st.metric(
-            label="⚠️ Risk Level",
-            value=risk
+            "⚠️ Risk Score",
+            f"{risk_score}%"
+        )
+
+
+    with kpi4:
+
+        st.metric(
+            "🛠️ Maintenance Priority",
+            priority
         )
 
 
     # ========================================================
-    # ENGINE LIFE VISUAL
+    # RUL VISUALIZATION
     # ========================================================
 
     st.markdown("---")
 
     st.subheader("🔋 Remaining Engine Life")
 
-    st.progress(progress_value)
+    st.progress(
+        progress_value
+    )
 
     st.caption(
-        f"Estimated remaining useful life: "
-        f"{rul_cycles} cycles"
+        f"Predicted RUL: {rul_cycles} cycles | "
+        f"Estimated model range: {uncertainty_range}"
     )
 
 
     # ========================================================
-    # CONDITION STATUS
+    # PREDICTION CONFIDENCE
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader("🎯 Prediction Uncertainty")
+
+    uncertainty_col1, uncertainty_col2 = st.columns(2)
+
+
+    with uncertainty_col1:
+
+        st.metric(
+            "Predicted RUL",
+            f"{rul_cycles} cycles"
+        )
+
+
+    with uncertainty_col2:
+
+        st.metric(
+            "Estimated Prediction Range",
+            uncertainty_range
+        )
+
+
+    st.caption(
+        "The prediction range represents the variation "
+        "among the individual Random Forest trees and "
+        "should be interpreted as model uncertainty, "
+        "not a formal statistical confidence interval."
+    )
+
+
+    # ========================================================
+    # ENGINE STATUS
     # ========================================================
 
     st.markdown("---")
@@ -425,6 +646,7 @@ if predict_button:
     st.subheader(
         f"{icon} Engine Status: {condition}"
     )
+
 
     if condition == "Healthy":
 
@@ -449,6 +671,27 @@ if predict_button:
 
 
     # ========================================================
+    # SENSOR MONITORING
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader("🔬 Sensor Condition Monitoring")
+
+    st.write(
+        "Current sensor readings are compared with "
+        "their observed operating ranges in the FD001 dataset."
+    )
+
+
+    st.dataframe(
+        sensor_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+    # ========================================================
     # MAINTENANCE RECOMMENDATION
     # ========================================================
 
@@ -457,12 +700,13 @@ if predict_button:
     st.subheader("🛠️ Maintenance Recommendation")
 
     st.info(
-        recommendation
+        f"**Priority: {priority}**\n\n"
+        f"{recommendation}"
     )
 
 
     # ========================================================
-    # CURRENT PARAMETERS DASHBOARD
+    # CURRENT PARAMETERS
     # ========================================================
 
     st.markdown("---")
@@ -481,34 +725,34 @@ if predict_button:
         )
 
         st.metric(
-            "Thermal Indicator",
-            f"{sensor_11:.3f}"
+            "LPT Outlet Temperature",
+            f"{sensor_4:.3f}"
         )
 
 
     with p2:
 
         st.metric(
-            "Pressure/Performance",
+            "Physical Core Speed",
             f"{sensor_9:.3f}"
         )
 
         st.metric(
-            "Engine Health",
-            f"{sensor_4:.3f}"
+            "HPC Outlet Pressure",
+            f"{sensor_11:.3f}"
         )
 
 
     with p3:
 
         st.metric(
-            "Performance Indicator",
-            f"{sensor_14:.3f}"
+            "Fuel Flow / Pressure Ratio",
+            f"{sensor_12:.3f}"
         )
 
         st.metric(
-            "Condition Indicator",
-            f"{sensor_12:.3f}"
+            "Corrected Core Speed",
+            f"{sensor_14:.3f}"
         )
 
 
@@ -518,7 +762,8 @@ if predict_button:
 
     st.markdown("---")
 
-    st.subheader("📝 Monitoring Summary")
+    st.subheader("📝 AI Monitoring Summary")
+
 
     summary_col1, summary_col2 = st.columns(2)
 
@@ -526,15 +771,23 @@ if predict_button:
     with summary_col1:
 
         st.write(
-            f"**Predicted RUL:** {rul_cycles} cycles"
+            f"**Predicted RUL:** "
+            f"{rul_cycles} cycles"
         )
 
         st.write(
-            f"**Condition:** {icon} {condition}"
+            f"**Engine Condition:** "
+            f"{icon} {condition}"
         )
 
         st.write(
-            f"**Risk Level:** {risk}"
+            f"**Risk Level:** "
+            f"{risk}"
+        )
+
+        st.write(
+            f"**Risk Score:** "
+            f"{risk_score}%"
         )
 
 
@@ -546,6 +799,11 @@ if predict_button:
 
         st.write(
             recommendation
+        )
+
+        st.write(
+            f"**Maintenance Priority:** "
+            f"{priority}"
         )
 
 
@@ -562,5 +820,5 @@ st.caption(
 
 st.caption(
     "Aircraft Engine Remaining Useful Life Prediction "
-    "and Condition Monitoring System"
+    "and Predictive Maintenance System"
 )
