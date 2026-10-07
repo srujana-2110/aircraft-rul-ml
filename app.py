@@ -4,9 +4,8 @@ import pandas as pd
 import joblib
 
 # --------------------------------------------------
-# PAGE CONFIGURATION
+# Page configuration
 # --------------------------------------------------
-
 st.set_page_config(
     page_title="Aircraft Engine RUL Monitor",
     page_icon="✈️",
@@ -14,93 +13,69 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# LOAD MODEL
+# Load model and features
 # --------------------------------------------------
-
 model = joblib.load("aircraft_rul_random_forest.pkl")
 features = joblib.load("rul_features.pkl")
 
 # --------------------------------------------------
-# CUSTOM CSS
+# Custom styling
 # --------------------------------------------------
-
 st.markdown("""
 <style>
+    .main-title {
+        font-size: 38px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
 
-.main {
-    padding-top: 1rem;
-}
+    .subtitle {
+        font-size: 18px;
+        color: #666;
+        margin-bottom: 25px;
+    }
 
-.title {
-    font-size: 38px;
-    font-weight: 700;
-}
+    .info-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #f5f7fa;
+        margin-bottom: 20px;
+    }
 
-.subtitle {
-    font-size: 18px;
-    color: #666;
-}
-
-.metric-card {
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    text-align: center;
-    background-color: #f8f9fa;
-}
-
-.section-title {
-    font-size: 24px;
-    font-weight: 600;
-    margin-top: 20px;
-}
-
+    .footer {
+        text-align: center;
+        color: #777;
+        margin-top: 40px;
+        font-size: 13px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# SIDEBAR
+# Sidebar
 # --------------------------------------------------
-
 with st.sidebar:
+    st.header("ℹ️ About")
 
-    st.title("✈️ RUL Monitor")
-
-    st.markdown("""
-    ### About the Project
-
-    This application predicts the **Remaining Useful Life (RUL)**
-    of an aircraft engine using a Random Forest Machine Learning model.
-
-    The system also provides:
-
-    - Engine condition
-    - Risk level
-    - Maintenance recommendation
-    """)
-
-    st.divider()
-
-    st.markdown("### Model")
-
-    st.write("Random Forest Regressor")
-
-    st.markdown("### Dataset")
-
-    st.write("NASA C-MAPSS FD001")
-
-    st.divider()
-
-    st.caption(
-        "Educational project using simulated aircraft engine data."
+    st.write(
+        "This application predicts the Remaining Useful Life (RUL) "
+        "of a simulated aircraft engine using Machine Learning."
     )
 
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
+    st.subheader("Model")
+    st.write("Random Forest Regressor")
 
+    st.subheader("Dataset")
+    st.write("NASA C-MAPSS FD001")
+
+    st.subheader("Prediction")
+    st.write("Remaining Useful Life in engine cycles")
+
+# --------------------------------------------------
+# Header
+# --------------------------------------------------
 st.markdown(
-    '<div class="title">✈️ Aircraft Engine RUL Prediction</div>',
+    '<div class="main-title">✈️ Aircraft Engine RUL Prediction</div>',
     unsafe_allow_html=True
 )
 
@@ -109,210 +84,212 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.divider()
-
-st.info(
-    "Enter the latest engine operating and sensor measurements "
-    "to estimate the engine's Remaining Useful Life."
-)
+st.markdown("""
+<div class="info-box">
+<b>How to use:</b> Enter the current engine sensor readings below.
+The remaining technical parameters are automatically filled using
+typical values from the training dataset.
+</div>
+""", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# INPUT SECTION
+# Input section
 # --------------------------------------------------
+st.header("🔧 Engine Condition Inputs")
 
-st.markdown(
-    '<div class="section-title">⚙️ Engine Parameters</div>',
-    unsafe_allow_html=True
-)
-
-input_values = {}
-
-# Create three columns
 col1, col2, col3 = st.columns(3)
 
-for i, feature in enumerate(features):
+with col1:
+    cycle = st.number_input(
+        "Engine Cycle",
+        min_value=1,
+        max_value=362,
+        value=100,
+        step=1,
+        help="Current operating cycle of the engine. Observed dataset range: 1–362."
+    )
 
-    # Reasonable starting value
-    if feature == "cycle":
-        default_value = 100.0
-    else:
-        default_value = 0.0
+with col2:
+    sensor_11 = st.number_input(
+        "Thermal Indicator (Sensor 11)",
+        min_value=46.850,
+        max_value=48.530,
+        value=47.510,
+        step=0.001,
+        format="%.3f",
+        help="Observed dataset range: 46.850–48.530."
+    )
 
-    if i % 3 == 0:
+with col3:
+    sensor_9 = st.number_input(
+        "Pressure/Performance Indicator (Sensor 9)",
+        min_value=9021.730,
+        max_value=9244.590,
+        value=9060.660,
+        step=0.001,
+        format="%.3f",
+        help="Observed dataset range: 9021.730–9244.590."
+    )
 
-        with col1:
-            input_values[feature] = st.number_input(
-                feature,
-                value=default_value,
-                format="%.4f"
-            )
+col4, col5, col6 = st.columns(3)
 
-    elif i % 3 == 1:
+with col4:
+    sensor_4 = st.number_input(
+        "Engine Health Indicator (Sensor 4)",
+        min_value=1382.250,
+        max_value=1441.490,
+        value=1408.040,
+        step=0.001,
+        format="%.3f",
+        help="Observed dataset range: 1382.250–1441.490."
+    )
 
-        with col2:
-            input_values[feature] = st.number_input(
-                feature,
-                value=default_value,
-                format="%.4f"
-            )
+with col5:
+    sensor_14 = st.number_input(
+        "Performance Indicator (Sensor 14)",
+        min_value=8099.940,
+        max_value=8293.720,
+        value=8140.540,
+        step=0.001,
+        format="%.3f",
+        help="Observed dataset range: 8099.940–8293.720."
+    )
 
-    else:
+with col6:
+    sensor_12 = st.number_input(
+        "Condition Indicator (Sensor 12)",
+        min_value=518.690,
+        max_value=523.380,
+        value=521.480,
+        step=0.001,
+        format="%.3f",
+        help="Observed dataset range: 518.690–523.380."
+    )
 
-        with col3:
-            input_values[feature] = st.number_input(
-                feature,
-                value=default_value,
-                format="%.4f"
-            )
-
-st.divider()
-
-# --------------------------------------------------
-# PREDICTION
-# --------------------------------------------------
-
-predict_button = st.button(
-    "🔍 Predict Engine RUL",
-    type="primary",
-    use_container_width=True
+st.caption(
+    "Note: Sensor values are dataset-specific indicators and are not "
+    "physical PSI, °C, bar, or other engineering units."
 )
 
-if predict_button:
+# --------------------------------------------------
+# Prediction
+# --------------------------------------------------
+st.divider()
 
-    input_df = pd.DataFrame(
-        [input_values],
+if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
+
+    # Default median values for all model features
+    # These are the training-data medians.
+    default_values = {
+        "cycle": 100,
+        "op_setting_1": 0.0,
+        "op_setting_2": 0.0,
+        "sensor_2": 642.0,
+        "sensor_3": 1580.0,
+        "sensor_4": 1408.040,
+        "sensor_6": 21.60,
+        "sensor_7": 553.0,
+        "sensor_8": 2388.0,
+        "sensor_9": 9060.660,
+        "sensor_11": 47.510,
+        "sensor_12": 521.480,
+        "sensor_13": 2388.0,
+        "sensor_14": 8140.540,
+        "sensor_15": 8.420,
+        "sensor_17": 392.0,
+        "sensor_20": 39.0,
+        "sensor_21": 23.0
+    }
+
+    # Replace selected values with user inputs
+    default_values["cycle"] = cycle
+    default_values["sensor_11"] = sensor_11
+    default_values["sensor_9"] = sensor_9
+    default_values["sensor_4"] = sensor_4
+    default_values["sensor_14"] = sensor_14
+    default_values["sensor_12"] = sensor_12
+
+    # Create model input in the exact feature order
+    input_data = pd.DataFrame(
+        [[default_values[feature] for feature in features]],
         columns=features
     )
 
-    predicted_rul = model.predict(input_df)[0]
+    # Prediction
+    predicted_rul = float(model.predict(input_data)[0])
 
-    # Prevent negative RUL display
+    # Prevent negative displayed RUL
     predicted_rul = max(0, predicted_rul)
 
     # --------------------------------------------------
-    # CONDITION CLASSIFICATION
+    # Condition and risk
     # --------------------------------------------------
-
     if predicted_rul > 50:
-
         condition = "Healthy"
         risk = "Low"
         recommendation = (
             "Continue routine monitoring and scheduled maintenance."
         )
-        emoji = "🟢"
-
     elif predicted_rul >= 20:
-
         condition = "Warning"
         risk = "Medium"
         recommendation = (
-            "Increase monitoring frequency and schedule "
-            "preventive maintenance."
+            "Increase monitoring frequency and schedule preventive maintenance."
         )
-        emoji = "🟡"
-
     else:
-
         condition = "Critical"
         risk = "High"
         recommendation = (
-            "Immediate inspection recommended. "
-            "Prioritize maintenance planning."
+            "Immediate inspection recommended. Prioritize maintenance planning."
         )
-        emoji = "🔴"
 
     # --------------------------------------------------
-    # RESULTS
+    # Results
     # --------------------------------------------------
+    st.header("📊 Prediction Result")
 
-    st.markdown(
-        '<div class="section-title">📊 Prediction Results</div>',
-        unsafe_allow_html=True
-    )
+    result_col1, result_col2, result_col3 = st.columns(3)
 
-    result1, result2, result3 = st.columns(3)
-
-    with result1:
-
+    with result_col1:
         st.metric(
-            "Remaining Useful Life",
+            "Predicted RUL",
             f"{predicted_rul:.1f} cycles"
         )
 
-    with result2:
-
+    with result_col2:
         st.metric(
             "Engine Condition",
-            f"{emoji} {condition}"
+            condition
         )
 
-    with result3:
-
+    with result_col3:
         st.metric(
             "Risk Level",
             risk
         )
 
-    st.divider()
-
-    # --------------------------------------------------
-    # MAINTENANCE RECOMMENDATION
-    # --------------------------------------------------
-
-    st.subheader("🔧 Maintenance Recommendation")
+    st.subheader("🛠️ Maintenance Recommendation")
 
     if condition == "Healthy":
-
         st.success(recommendation)
-
     elif condition == "Warning":
-
         st.warning(recommendation)
-
     else:
-
         st.error(recommendation)
 
-    # --------------------------------------------------
-    # RUL INTERPRETATION
-    # --------------------------------------------------
-
-    st.subheader("📌 RUL Interpretation")
-
-    if predicted_rul > 50:
-
-        st.write(
-            "The predicted RUL is above the project's healthy threshold. "
-            "The engine can continue under routine monitoring."
-        )
-
-    elif predicted_rul >= 20:
-
-        st.write(
-            "The predicted RUL indicates a warning condition. "
-            "Closer monitoring and preventive maintenance are recommended."
-        )
-
-    else:
-
-        st.write(
-            "The predicted RUL indicates a critical condition. "
-            "Inspection and maintenance should be prioritized."
-        )
-
-    st.caption(
-        "Note: Health thresholds are project-defined decision rules "
-        "and are not official NASA condition labels."
+    st.info(
+        "RUL represents the estimated number of operating cycles remaining "
+        "before the engine reaches the end-of-life condition represented in "
+        "the training data."
     )
 
 # --------------------------------------------------
-# FOOTER
+# Footer
 # --------------------------------------------------
-
-st.divider()
-
-st.caption(
-    "Aircraft Engine RUL Prediction | "
-    "Random Forest | NASA C-MAPSS FD001 | Streamlit"
+st.markdown(
+    '<div class="footer">'
+    'NASA C-MAPSS FD001 • Random Forest Machine Learning • '
+    'Predictive Maintenance Demo'
+    '</div>',
+    unsafe_allow_html=True
 )
