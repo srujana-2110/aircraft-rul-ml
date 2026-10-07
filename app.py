@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -13,41 +12,40 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# Load model and features
+# Load model and feature list
 # --------------------------------------------------
 model = joblib.load("aircraft_rul_random_forest.pkl")
 features = joblib.load("rul_features.pkl")
 
 # --------------------------------------------------
-# Custom styling
+# Styling
 # --------------------------------------------------
 st.markdown("""
 <style>
-    .main-title {
-        font-size: 38px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
+.main-title {
+    font-size: 38px;
+    font-weight: 700;
+}
 
-    .subtitle {
-        font-size: 18px;
-        color: #666;
-        margin-bottom: 25px;
-    }
+.subtitle {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 25px;
+}
 
-    .info-box {
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #f5f7fa;
-        margin-bottom: 20px;
-    }
+.info-box {
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #f5f7fa;
+    margin-bottom: 20px;
+}
 
-    .footer {
-        text-align: center;
-        color: #777;
-        margin-top: 40px;
-        font-size: 13px;
-    }
+.footer {
+    text-align: center;
+    color: #777;
+    margin-top: 40px;
+    font-size: 13px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -68,8 +66,8 @@ with st.sidebar:
     st.subheader("Dataset")
     st.write("NASA C-MAPSS FD001")
 
-    st.subheader("Prediction")
-    st.write("Remaining Useful Life in engine cycles")
+    st.subheader("Output")
+    st.write("Estimated Remaining Useful Life in engine cycles")
 
 # --------------------------------------------------
 # Header
@@ -86,14 +84,14 @@ st.markdown(
 
 st.markdown("""
 <div class="info-box">
-<b>How to use:</b> Enter the current engine sensor readings below.
+<b>How to use:</b> Enter the current engine readings below.
 The remaining technical parameters are automatically filled using
-typical values from the training dataset.
+median values from the training dataset.
 </div>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# Input section
+# User inputs
 # --------------------------------------------------
 st.header("🔧 Engine Condition Inputs")
 
@@ -104,9 +102,9 @@ with col1:
         "Engine Cycle",
         min_value=1,
         max_value=362,
-        value=100,
+        value=104,
         step=1,
-        help="Current operating cycle of the engine. Observed dataset range: 1–362."
+        help="Valid observed range: 1–362 cycles."
     )
 
 with col2:
@@ -178,30 +176,29 @@ st.divider()
 
 if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
 
-    # Default median values for all model features
-    # These are the training-data medians.
+    # Median values calculated from the training dataset
     default_values = {
-        "cycle": 100,
+        "cycle": 104.0,
         "op_setting_1": 0.0,
         "op_setting_2": 0.0,
-        "sensor_2": 642.0,
-        "sensor_3": 1580.0,
-        "sensor_4": 1408.040,
-        "sensor_6": 21.60,
-        "sensor_7": 553.0,
-        "sensor_8": 2388.0,
-        "sensor_9": 9060.660,
-        "sensor_11": 47.510,
-        "sensor_12": 521.480,
-        "sensor_13": 2388.0,
-        "sensor_14": 8140.540,
-        "sensor_15": 8.420,
-        "sensor_17": 392.0,
-        "sensor_20": 39.0,
-        "sensor_21": 23.0
+        "sensor_2": 642.64,
+        "sensor_3": 1590.1,
+        "sensor_4": 1408.04,
+        "sensor_6": 21.61,
+        "sensor_7": 553.44,
+        "sensor_8": 2388.09,
+        "sensor_9": 9060.66,
+        "sensor_11": 47.51,
+        "sensor_12": 521.48,
+        "sensor_13": 2388.09,
+        "sensor_14": 8140.54,
+        "sensor_15": 8.4389,
+        "sensor_17": 393.0,
+        "sensor_20": 38.83,
+        "sensor_21": 23.2979
     }
 
-    # Replace selected values with user inputs
+    # Replace median values with user inputs
     default_values["cycle"] = cycle
     default_values["sensor_11"] = sensor_11
     default_values["sensor_9"] = sensor_9
@@ -209,20 +206,18 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
     default_values["sensor_14"] = sensor_14
     default_values["sensor_12"] = sensor_12
 
-    # Create model input in the exact feature order
+    # Create input in exact model feature order
     input_data = pd.DataFrame(
         [[default_values[feature] for feature in features]],
         columns=features
     )
 
-    # Prediction
+    # Predict RUL
     predicted_rul = float(model.predict(input_data)[0])
-
-    # Prevent negative displayed RUL
     predicted_rul = max(0, predicted_rul)
 
     # --------------------------------------------------
-    # Condition and risk
+    # Condition classification
     # --------------------------------------------------
     if predicted_rul > 50:
         condition = "Healthy"
@@ -230,12 +225,14 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
         recommendation = (
             "Continue routine monitoring and scheduled maintenance."
         )
+
     elif predicted_rul >= 20:
         condition = "Warning"
         risk = "Medium"
         recommendation = (
             "Increase monitoring frequency and schedule preventive maintenance."
         )
+
     else:
         condition = "Critical"
         risk = "High"
@@ -272,15 +269,16 @@ if st.button("🔮 Predict Remaining Useful Life", use_container_width=True):
 
     if condition == "Healthy":
         st.success(recommendation)
+
     elif condition == "Warning":
         st.warning(recommendation)
+
     else:
         st.error(recommendation)
 
     st.info(
-        "RUL represents the estimated number of operating cycles remaining "
-        "before the engine reaches the end-of-life condition represented in "
-        "the training data."
+        "RUL is an estimated number of operating cycles remaining "
+        "based on patterns learned from the NASA C-MAPSS FD001 dataset."
     )
 
 # --------------------------------------------------
