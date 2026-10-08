@@ -245,7 +245,7 @@ def create_pdf_report(
         )
     )
 
-    doc.build(buffer)
+    doc.build(story)
 
     buffer.seek(0)
     return buffer.getvalue()
