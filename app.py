@@ -2,291 +2,89 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
 from io import BytesIO
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether
-)
+from reportlab.lib.enums import TA_CENTER
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+
 
 # ============================================================
 # PAGE CONFIGURATION
 # ============================================================
+
 st.set_page_config(
-    page_title="Aircraft Engine RUL Prediction",
+    page_title="Aircraft Engine Predictive Maintenance",
     page_icon="✈️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
+
 
 # ============================================================
 # CONSTANTS
 # ============================================================
-MODEL_FILE = "aircraft_rul_random_forest.pkl"
-FEATURE_FILE = "rul_features.pkl"
-TRAIN_FILE = "train_FD001.txt"
 
 DATA_COLUMNS = [
-    "unit_id", "cycle",
-    "op_setting_1", "op_setting_2", "op_setting_3",
-    "sensor_1", "sensor_2", "sensor_3", "sensor_4", "sensor_5",
-    "sensor_6", "sensor_7", "sensor_8", "sensor_9", "sensor_10",
-    "sensor_11", "sensor_12", "sensor_13", "sensor_14", "sensor_15",
-    "sensor_16", "sensor_17", "sensor_18", "sensor_19", "sensor_20",
-    "sensor_21"
-]
-
-MODEL_FEATURES = [
+    "unit_id",
     "cycle",
     "op_setting_1",
     "op_setting_2",
+    "op_setting_3",
+    "sensor_1",
     "sensor_2",
     "sensor_3",
     "sensor_4",
+    "sensor_5",
     "sensor_6",
     "sensor_7",
     "sensor_8",
     "sensor_9",
+    "sensor_10",
     "sensor_11",
     "sensor_12",
     "sensor_13",
     "sensor_14",
     "sensor_15",
+    "sensor_16",
     "sensor_17",
+    "sensor_18",
+    "sensor_19",
     "sensor_20",
     "sensor_21"
 ]
 
-DEFAULT_VALUES = {
-    "cycle": 104.0,
-    "op_setting_1": 0.0,
-    "op_setting_2": 0.0,
-    "sensor_2": 642.64,
-    "sensor_3": 1590.1,
-    "sensor_4": 1408.04,
-    "sensor_6": 21.61,
-    "sensor_7": 553.44,
-    "sensor_8": 2388.09,
-    "sensor_9": 9060.66,
-    "sensor_11": 47.51,
-    "sensor_12": 521.48,
-    "sensor_13": 2388.09,
-    "sensor_14": 8140.54,
-    "sensor_15": 8.4389,
-    "sensor_17": 393.0,
-    "sensor_20": 38.83,
-    "sensor_21": 23.2979
-}
-
-INPUT_RANGES = {
-    "cycle": (1.0, 362.0),
-    "sensor_11": (46.850, 48.530),
-    "sensor_9": (9021.730, 9244.590),
-    "sensor_4": (1382.250, 1441.490),
-    "sensor_14": (8099.940, 8293.720),
-    "sensor_12": (518.690, 523.380)
-}
-
-INPUT_LABELS = {
-    "cycle": "Engine Cycle",
-    "sensor_11": "Sensor 11",
-    "sensor_9": "Sensor 9",
-    "sensor_4": "Sensor 4",
-    "sensor_14": "Sensor 14",
-    "sensor_12": "Sensor 12"
-}
 
 # ============================================================
-# CUSTOM CSS
+# PDF REPORT
 # ============================================================
-st.markdown("""
-<style>
-.main-title {
-    font-size: 2.3rem;
-    font-weight: 700;
-    margin-bottom: 0.2rem;
-}
-.subtitle {
-    color: #666;
-    font-size: 1.05rem;
-    margin-bottom: 1.5rem;
-}
-.result-card {
-    padding: 20px;
-    border-radius: 14px;
-    border: 1px solid #ddd;
-    background: #fafafa;
-    margin-bottom: 15px;
-}
-.section-title {
-    font-size: 1.35rem;
-    font-weight: 650;
-    margin-top: 10px;
-}
-.small-note {
-    color: #666;
-    font-size: 0.85rem;
-}
-</style>
-""", unsafe_allow_html=True)
 
-# ============================================================
-# LOAD MODEL
-# ============================================================
-@st.cache_resource
-def load_model():
-    return joblib.load(MODEL_FILE)
-
-@st.cache_resource
-def load_features():
-    return joblib.load(FEATURE_FILE)
-
-try:
-    model = load_model()
-    saved_features = load_features()
-except Exception as e:
-    st.error(
-        "Unable to load the trained model files. Make sure "
-        "'aircraft_rul_random_forest.pkl' and 'rul_features.pkl' "
-        "are in the same folder as app.py."
-    )
-    st.exception(e)
-    st.stop()
-
-# ============================================================
-# LOAD TRAINING DATA
-# ============================================================
-@st.cache_data
-def load_training_data():
-    try:
-        df = pd.read_csv(
-            TRAIN_FILE,
-            sep=r"\s+",
-            header=None
-        )
-        df.columns = DATA_COLUMNS
-        return df
-    except Exception:
-        return None
-
-train_df = load_training_data()
-
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
-def calculate_risk_percentage(rul):
-    """Convert project RUL bands into a continuous 0–100% risk score.
-
-    The score is a project-defined indicator, not a probability of failure.
-    Healthy (>50 cycles) maps to 0–33%, Warning (20–50) to 34–66%,
-    and Critical (<20) to 67–100%.
-    """
-    rul = max(0.0, float(rul))
-    max_rul = 361.0
-
-    if rul > 50:
-        # 361 cycles -> 0%, 50 cycles -> 33%
-        risk = 33.0 * (max_rul - rul) / (max_rul - 50.0)
-    elif rul >= 20:
-        # 50 cycles -> 33%, 20 cycles -> 66%
-        risk = 33.0 + (50.0 - rul) * (33.0 / 30.0)
-    else:
-        # 20 cycles -> 66%, 0 cycles -> 100%
-        risk = 66.0 + (20.0 - rul) * (34.0 / 20.0)
-
-    return round(float(np.clip(risk, 0.0, 100.0)), 1)
-
-def classify_condition(rul):
-    risk_percentage = calculate_risk_percentage(rul)
-
-    if rul > 50:
-        return "Healthy", risk_percentage, "Routine"
-    elif rul >= 20:
-        return "Warning", risk_percentage, "Preventive"
-    else:
-        return "Critical", risk_percentage, "Immediate"
-
-def get_recommendation(condition):
-    if condition == "Healthy":
-        return (
-            "Continue routine monitoring and scheduled maintenance. "
-            "No immediate maintenance action is required."
-        )
-    elif condition == "Warning":
-        return (
-            "Increase monitoring frequency and schedule preventive "
-            "maintenance to reduce the risk of unexpected failure."
-        )
-    else:
-        return (
-            "Immediate inspection is recommended. Prioritize "
-            "maintenance planning and investigate the engine condition."
-        )
-
-def get_range_status(key, current):
-    """Return a simple dataset-range status for a user-entered value."""
-    low, high = INPUT_RANGES[key]
-    if low <= current <= high:
-        return "Within Range"
-    return "Outside Range"
-
-def build_input_dataframe(user_values):
-    values = DEFAULT_VALUES.copy()
-
-    for key, value in user_values.items():
-        values[key] = value
-
-    # Ensure exact feature order used during training.
-    input_df = pd.DataFrame(
-        [[values[feature] for feature in MODEL_FEATURES]],
-        columns=MODEL_FEATURES
-    )
-    return input_df
-
-def predict_engine(user_values):
-    input_df = build_input_dataframe(user_values)
-
-    predicted_rul = float(model.predict(input_df)[0])
-    predicted_rul = max(0.0, predicted_rul)
-
-    # Variation across individual Random Forest trees.
-    tree_predictions = np.array([
-        float(tree.predict(input_df)[0])
-        for tree in model.estimators_
-    ])
-
-    lower = max(0.0, float(np.percentile(tree_predictions, 10)))
-    upper = max(0.0, float(np.percentile(tree_predictions, 90)))
-
-    condition, risk, priority = classify_condition(predicted_rul)
-    recommendation = get_recommendation(condition)
-
-    return {
-        "predicted_rul": predicted_rul,
-        "lower": lower,
-        "upper": upper,
-        "condition": condition,
-        "risk": risk,
-        "priority": priority,
-        "recommendation": recommendation,
-        "input_df": input_df
-    }
-
-def create_pdf_report(result, user_values):
-    """Generate a professional PDF maintenance analysis report."""
+def create_pdf_report(
+    predicted_rul,
+    rul_cycles,
+    prediction_range,
+    condition,
+    risk,
+    risk_score,
+    priority,
+    recommendation,
+    cycle,
+    sensor_4,
+    sensor_9,
+    sensor_11,
+    sensor_12,
+    sensor_14
+):
     buffer = BytesIO()
 
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=15 * mm,
-        leftMargin=15 * mm,
-        topMargin=15 * mm,
-        bottomMargin=15 * mm
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
     )
 
     styles = getSampleStyleSheet()
@@ -294,726 +92,2154 @@ def create_pdf_report(result, user_values):
     title_style = ParagraphStyle(
         "ReportTitle",
         parent=styles["Title"],
-        fontSize=20,
-        leading=24,
         alignment=TA_CENTER,
-        spaceAfter=8
-    )
-
-    subtitle_style = ParagraphStyle(
-        "ReportSubtitle",
-        parent=styles["Normal"],
-        fontSize=10,
-        leading=14,
-        alignment=TA_CENTER,
-        textColor=colors.grey,
-        spaceAfter=18
-    )
-
-    heading_style = ParagraphStyle(
-        "ReportHeading",
-        parent=styles["Heading2"],
-        fontSize=13,
-        leading=16,
-        spaceBefore=10,
-        spaceAfter=8
-    )
-
-    body_style = ParagraphStyle(
-        "ReportBody",
-        parent=styles["BodyText"],
-        fontSize=9.5,
-        leading=14
+        fontSize=18,
+        spaceAfter=12
     )
 
     story = []
 
-    story.append(Paragraph(
-        "Aircraft Engine Remaining Useful Life (RUL) Analysis Report",
-        title_style
-    ))
-    story.append(Paragraph(
-        "Condition Monitoring and Predictive Maintenance Report",
-        subtitle_style
-    ))
+    story.append(
+        Paragraph(
+            "Aircraft Engine Predictive Maintenance Report",
+            title_style
+        )
+    )
 
-    # Executive summary
-    story.append(Paragraph("1. Executive Summary", heading_style))
+    story.append(
+        Paragraph(
+            "Remaining Useful Life Prediction & Condition Monitoring",
+            styles["Heading2"]
+        )
+    )
+
+    story.append(Spacer(1, 12))
 
     summary_data = [
-        ["Metric", "Result"],
-        ["Predicted RUL", f"{result['predicted_rul']:.1f} cycles"],
-        ["Model Prediction Range",
-         f"{result['lower']:.1f} – {result['upper']:.1f} cycles"],
-        ["Engine Condition", result["condition"]],
-        ["Risk Score", f"{result['risk']:.1f}%"],
-        ["Maintenance Priority", result["priority"]],
+        ["Prediction Summary", "Value"],
+        ["Predicted RUL", f"{rul_cycles} cycles"],
+        ["Model Prediction Range", prediction_range],
+        ["Engine Condition", condition],
+        ["Risk Level", risk],
+        ["Risk Score", f"{risk_score}%"],
+        ["Maintenance Priority", priority]
     ]
 
-    summary_table = Table(summary_data, colWidths=[70 * mm, 90 * mm])
-    summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4e78")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-         [colors.white, colors.HexColor("#f5f5f5")]),
-        ("TOPPADDING", (0, 0), (-1, -1), 7),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-    ]))
-    story.append(summary_table)
-    story.append(Spacer(1, 8))
+    summary_table = Table(
+        summary_data,
+        colWidths=[220, 220]
+    )
 
-    # Assessment
-    story.append(Paragraph("2. Condition Assessment", heading_style))
-    story.append(Paragraph(
-        f"Risk score: {result['risk']:.1f}% (project-defined indicator; not a probability of failure).",
-        body_style
-    ))
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(
-        result["recommendation"],
-        body_style
-    ))
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(
-        "Condition thresholds used in this project: "
-        "Healthy &gt; 50 cycles, Warning 20–50 cycles, "
-        "and Critical &lt; 20 cycles.",
-        body_style
-    ))
-
-    # Input parameters
-    story.append(Paragraph("3. Current Engine Parameters", heading_style))
-
-    parameter_rows = [["Parameter", "Current Value", "Typical Range", "Status"]]
-
-    for key in [
-        "cycle", "sensor_11", "sensor_9",
-        "sensor_4", "sensor_14", "sensor_12"
-    ]:
-        low, high = INPUT_RANGES[key]
-        value = user_values[key]
-
-        if key == "cycle":
-            value_text = f"{value:.0f}"
-            range_text = f"{low:.0f} – {high:.0f}"
-        else:
-            value_text = f"{value:.3f}"
-            range_text = f"{low:.3f} – {high:.3f}"
-
-        parameter_rows.append([
-            INPUT_LABELS[key],
-            value_text,
-            range_text,
-            get_range_status(key, value)
+    summary_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4e78")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 7)
         ])
+    )
+
+    story.append(summary_table)
+    story.append(Spacer(1, 18))
+
+    story.append(
+        Paragraph(
+            "Current Engine Parameters",
+            styles["Heading2"]
+        )
+    )
+
+    parameter_data = [
+        ["Parameter", "Current Value", "Typical Value"],
+        ["Engine Cycle", f"{cycle:.0f}", "104.000"],
+        ["LPT Outlet Temperature (Sensor 4)", f"{sensor_4:.3f}", "1408.040"],
+        ["Physical Core Speed (Sensor 9)", f"{sensor_9:.3f}", "9060.660"],
+        ["HPC Outlet Static Pressure (Sensor 11)", f"{sensor_11:.3f}", "47.510"],
+        ["Fuel Flow / Pressure Ratio (Sensor 12)", f"{sensor_12:.3f}", "521.480"],
+        ["Corrected Core Speed (Sensor 14)", f"{sensor_14:.3f}", "8140.540"]
+    ]
 
     parameter_table = Table(
-        parameter_rows,
-        colWidths=[50 * mm, 35 * mm, 50 * mm, 30 * mm]
+        parameter_data,
+        colWidths=[250, 100, 100]
     )
 
-    parameter_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4e78")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-         [colors.white, colors.HexColor("#f5f5f5")]),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
+    parameter_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 6)
+        ])
+    )
 
     story.append(parameter_table)
+    story.append(Spacer(1, 18))
 
-    # Model details
-    story.append(Paragraph("4. Machine Learning Model", heading_style))
+    story.append(
+        Paragraph(
+            "Maintenance Recommendation",
+            styles["Heading2"]
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"<b>Priority:</b> {priority}<br/>"
+            f"{recommendation}",
+            styles["BodyText"]
+        )
+    )
+
+    story.append(Spacer(1, 18))
+
+    story.append(
+        Paragraph(
+            "Model Information",
+            styles["Heading2"]
+        )
+    )
 
     model_data = [
-        ["Model", "Random Forest Regressor"],
-        ["Deployed Trees", str(len(model.estimators_))],
-        ["Model Features", str(len(MODEL_FEATURES))],
+        ["Item", "Details"],
         ["Dataset", "NASA C-MAPSS FD001"],
-        ["Prediction Target", "Remaining Useful Life (cycles)"],
-        ["Application", "Aircraft Engine Condition Monitoring"],
+        ["Algorithm", "Random Forest Regressor"],
+        ["Model Features", "18"],
+        ["Decision Trees", "50"],
+        ["Validation MAE", "23.78 cycles"],
+        ["Validation RMSE", "31.31 cycles"],
+        ["Validation R²", "0.7725"]
     ]
 
-    model_table = Table(model_data, colWidths=[60 * mm, 105 * mm])
-    model_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#eaf2f8")),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    story.append(model_table)
-
-    story.append(Paragraph("5. Prediction Method", heading_style))
-    story.append(Paragraph(
-        "The application accepts six user-facing engine parameters. "
-        "The trained model requires 18 features, so the remaining model "
-        "features are populated using their training-data median values. "
-        "The resulting feature vector is passed to the trained Random "
-        "Forest Regressor to estimate remaining useful life.",
-        body_style
-    ))
-
-    story.append(Spacer(1, 6))
-
-    story.append(Paragraph("6. Model Prediction Range", heading_style))
-    story.append(Paragraph(
-        f"The predicted RUL is {result['predicted_rul']:.1f} cycles. "
-        f"The 10th–90th percentile range of individual Random Forest "
-        f"tree predictions is {result['lower']:.1f}–"
-        f"{result['upper']:.1f} cycles. This range represents variation "
-        f"among the model's individual trees and should not be interpreted "
-        f"as a formal statistical confidence interval.",
-        body_style
-    ))
-
-    story.append(Spacer(1, 6))
-
-    story.append(Paragraph("7. Maintenance Recommendation", heading_style))
-    story.append(Paragraph(
-        result["recommendation"],
-        body_style
-    ))
-
-    # Disclaimer
-    story.append(Spacer(1, 14))
-    story.append(Paragraph("8. Report Notes", heading_style))
-    story.append(Paragraph(
-        "This report is generated by a machine-learning demonstration "
-        "application using the NASA C-MAPSS FD001 simulated dataset. "
-        "The sensor columns are anonymized dataset indicators. The "
-        "prediction is intended for project-level condition monitoring "
-        "and should not be treated as a certified aviation maintenance "
-        "decision or a guaranteed failure forecast.",
-        body_style
-    ))
-
-    def add_page_number(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("Helvetica", 8)
-        canvas.setFillColor(colors.grey)
-        canvas.drawCentredString(
-            A4[0] / 2,
-            8 * mm,
-            f"Aircraft Engine RUL Analysis Report  |  Page {doc.page}"
-        )
-        canvas.restoreState()
-
-    doc.build(
-        story,
-        onFirstPage=add_page_number,
-        onLaterPages=add_page_number
+    model_table = Table(
+        model_data,
+        colWidths=[180, 270]
     )
+
+    model_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#70AD47")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 6)
+        ])
+    )
+
+    story.append(model_table)
+    story.append(Spacer(1, 18))
+
+    story.append(
+        Paragraph(
+            "Note: The model prediction range represents variation among "
+            "individual Random Forest tree predictions and is not a formal "
+            "statistical confidence interval. This application is a project "
+            "demonstration based on the simulated NASA C-MAPSS FD001 dataset "
+            "and should not be treated as a certified aviation maintenance decision system.",
+            styles["BodyText"]
+        )
+    )
+
+    doc.build(buffer)
 
     buffer.seek(0)
     return buffer.getvalue()
 
-# ============================================================
-# SIDEBAR NAVIGATION
-# ============================================================
-st.sidebar.title("✈️ Aircraft RUL")
-st.sidebar.caption("Predictive Maintenance System")
 
-page = st.sidebar.radio(
+# ============================================================
+# LOAD MODEL
+# ============================================================
+
+@st.cache_resource
+def load_model():
+
+    model = joblib.load(
+        "aircraft_rul_random_forest.pkl"
+    )
+
+    features = joblib.load(
+        "rul_features.pkl"
+    )
+
+    return model, features
+
+
+model, features = load_model()
+
+
+# ============================================================
+# LOAD TRAINING DATA
+# ============================================================
+
+@st.cache_data
+def load_training_data(file_path):
+
+    df = pd.read_csv(
+        file_path,
+        sep=r"\s+",
+        header=None,
+        names=DATA_COLUMNS
+    )
+
+    return df
+
+
+# ============================================================
+# TRAINING MEDIAN VALUES
+# ============================================================
+
+default_values = {
+
+    "cycle": 104.0,
+
+    "op_setting_1": 0.0,
+
+    "op_setting_2": 0.0,
+
+    "sensor_2": 642.64,
+
+    "sensor_3": 1590.1,
+
+    "sensor_4": 1408.04,
+
+    "sensor_6": 21.61,
+
+    "sensor_7": 553.44,
+
+    "sensor_8": 2388.09,
+
+    "sensor_9": 9060.66,
+
+    "sensor_11": 47.51,
+
+    "sensor_12": 521.48,
+
+    "sensor_13": 2388.09,
+
+    "sensor_14": 8140.54,
+
+    "sensor_15": 8.4389,
+
+    "sensor_17": 393.0,
+
+    "sensor_20": 38.83,
+
+    "sensor_21": 23.2979
+}
+
+
+# ============================================================
+# SENSOR INFORMATION
+# ============================================================
+
+sensor_ranges = {
+
+    "sensor_4": {
+
+        "name": "LPT Outlet Temperature",
+
+        "symbol": "T50",
+
+        "min": 1382.250,
+
+        "max": 1441.490,
+
+        "median": 1408.040
+
+    },
+
+    "sensor_9": {
+
+        "name": "Physical Core Speed",
+
+        "symbol": "Nc",
+
+        "min": 9021.730,
+
+        "max": 9244.590,
+
+        "median": 9060.660
+
+    },
+
+    "sensor_11": {
+
+        "name": "HPC Outlet Static Pressure",
+
+        "symbol": "Ps30",
+
+        "min": 46.850,
+
+        "max": 48.530,
+
+        "median": 47.510
+
+    },
+
+    "sensor_12": {
+
+        "name": "Fuel Flow / Pressure Ratio",
+
+        "symbol": "φ",
+
+        "min": 518.690,
+
+        "max": 523.380,
+
+        "median": 521.480
+
+    },
+
+    "sensor_14": {
+
+        "name": "Corrected Core Speed",
+
+        "symbol": "NRc",
+
+        "min": 8099.940,
+
+        "max": 8293.720,
+
+        "median": 8140.540
+
+    }
+}
+
+
+# ============================================================
+# LOAD DATASET
+# ============================================================
+
+dataset = None
+
+if os.path.exists("train_FD001.txt"):
+
+    try:
+
+        dataset = load_training_data(
+            "train_FD001.txt"
+        )
+
+    except Exception:
+        dataset = None
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+with st.sidebar:
+
+    st.title("✈️ Aircraft RUL Monitor")
+
+    st.markdown("---")
+
+    st.subheader("📌 Project")
+
+    st.write(
+        "Aircraft Engine Remaining Useful Life "
+        "(RUL) Prediction and Condition Monitoring "
+        "using Machine Learning."
+    )
+
+    st.markdown("---")
+
+    st.subheader("🤖 Model")
+
+    st.write(
+        "Random Forest Regressor"
+    )
+
+    st.write(
+        "18 model features"
+    )
+
+    st.write(
+        "50 decision trees"
+    )
+
+    st.markdown("---")
+
+    st.subheader("📊 Dataset")
+
+    st.write(
+        "NASA C-MAPSS FD001"
+    )
+
+    st.write(
+        "100 training engines"
+    )
+
+    st.write(
+        "20,631 training records"
+    )
+
+    st.markdown("---")
+
+    st.subheader("⚙️ System")
+
+    st.write("✓ RUL Prediction")
+
+    st.write("✓ Risk Assessment")
+
+    st.write("✓ Sensor Monitoring")
+
+    st.write("✓ Dataset Explorer")
+
+    st.write("✓ Maintenance Recommendation")
+
+
+# ============================================================
+# MAIN NAVIGATION
+# ============================================================
+
+st.title(
+    "✈️ Aircraft Engine Predictive Maintenance"
+)
+
+st.caption(
+    "Remaining Useful Life Prediction & Condition Monitoring"
+)
+
+page = st.radio(
     "Navigation",
     [
         "🏠 Prediction Dashboard",
         "📂 Dataset Explorer",
         "🤖 Model Information"
-    ]
+    ],
+    horizontal=True
 )
 
-st.sidebar.markdown("---")
-st.sidebar.info(
-    "NASA C-MAPSS FD001 is a simulated aircraft engine "
-    "degradation dataset used for RUL prediction."
-)
 
+# ============================================================
 # ============================================================
 # PAGE 1 — PREDICTION DASHBOARD
 # ============================================================
+# ============================================================
+
 if page == "🏠 Prediction Dashboard":
 
-    st.markdown(
-        '<div class="main-title">✈️ Aircraft Engine RUL Prediction</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        '<div class="subtitle">'
-        'Machine-learning based condition monitoring and predictive maintenance'
-        '</div>',
-        unsafe_allow_html=True
+    st.subheader(
+        "🔧 Current Engine Parameters"
     )
 
-    st.markdown("### 🔧 Enter Engine Parameters")
+    st.write(
+        "Enter the current engine operating parameters "
+        "to estimate remaining useful life and assess "
+        "maintenance condition."
+    )
+
+    st.caption(
+        "Input values are restricted to the observed "
+        "ranges in the FD001 training dataset."
+    )
+
+
+    # ========================================================
+    # INPUT ROW 1
+    # ========================================================
 
     col1, col2, col3 = st.columns(3)
 
-    with col1:
-        cycle = st.number_input(
-            "Engine Cycle",
-            min_value=1.0,
-            max_value=362.0,
-            value=104.0,
-            step=1.0,
-            help="Current operating cycle of the engine. Range: 1–362."
-        )
-        st.caption("Range: 1 – 362")
 
-        sensor_11 = st.number_input(
-            "Sensor 11",
-            min_value=46.850,
-            max_value=48.530,
-            value=47.510,
-            step=0.001,
-            format="%.3f"
+    # --------------------------------------------------------
+    # ENGINE CYCLE
+    # --------------------------------------------------------
+
+    with col1:
+
+        cycle = st.number_input(
+
+            "Engine Cycle",
+
+            min_value=1.0,
+
+            max_value=362.0,
+
+            value=104.0,
+
+            step=1.0
+
         )
-        st.caption("Range: 46.850 – 48.530")
+
+        st.caption(
+            "Range: 1 – 362 | Typical: 104"
+        )
+
+
+    # --------------------------------------------------------
+    # SENSOR 11
+    # --------------------------------------------------------
 
     with col2:
-        sensor_9 = st.number_input(
-            "Sensor 9",
-            min_value=9021.730,
-            max_value=9244.590,
-            value=9060.660,
-            step=0.001,
-            format="%.3f"
-        )
-        st.caption("Range: 9021.730 – 9244.590")
 
-        sensor_4 = st.number_input(
-            "Sensor 4",
-            min_value=1382.250,
-            max_value=1441.490,
-            value=1408.040,
-            step=0.001,
-            format="%.3f"
+        sensor_11 = st.number_input(
+
+            "HPC Outlet Static Pressure (Sensor 11)",
+
+            min_value=46.850,
+
+            max_value=48.530,
+
+            value=47.510,
+
+            step=0.001
+
         )
-        st.caption("Range: 1382.250 – 1441.490")
+
+        st.caption(
+            "Range: 46.850 – 48.530 | Typical: 47.510"
+        )
+
+
+    # --------------------------------------------------------
+    # SENSOR 9
+    # --------------------------------------------------------
 
     with col3:
-        sensor_14 = st.number_input(
-            "Sensor 14",
-            min_value=8099.940,
-            max_value=8293.720,
-            value=8140.540,
-            step=0.001,
-            format="%.3f"
+
+        sensor_9 = st.number_input(
+
+            "Physical Core Speed (Sensor 9)",
+
+            min_value=9021.730,
+
+            max_value=9244.590,
+
+            value=9060.660,
+
+            step=0.001
+
         )
-        st.caption("Range: 8099.940 – 8293.720")
+
+        st.caption(
+            "Range: 9021.730 – 9244.590 | Typical: 9060.660"
+        )
+
+
+    # ========================================================
+    # INPUT ROW 2
+    # ========================================================
+
+    col4, col5, col6 = st.columns(3)
+
+
+    # --------------------------------------------------------
+    # SENSOR 4
+    # --------------------------------------------------------
+
+    with col4:
+
+        sensor_4 = st.number_input(
+
+            "LPT Outlet Temperature (Sensor 4)",
+
+            min_value=1382.250,
+
+            max_value=1441.490,
+
+            value=1408.040,
+
+            step=0.001
+
+        )
+
+        st.caption(
+            "Range: 1382.250 – 1441.490 | Typical: 1408.040"
+        )
+
+
+    # --------------------------------------------------------
+    # SENSOR 14
+    # --------------------------------------------------------
+
+    with col5:
+
+        sensor_14 = st.number_input(
+
+            "Corrected Core Speed (Sensor 14)",
+
+            min_value=8099.940,
+
+            max_value=8293.720,
+
+            value=8140.540,
+
+            step=0.001
+
+        )
+
+        st.caption(
+            "Range: 8099.940 – 8293.720 | Typical: 8140.540"
+        )
+
+
+    # --------------------------------------------------------
+    # SENSOR 12
+    # --------------------------------------------------------
+
+    with col6:
 
         sensor_12 = st.number_input(
-            "Sensor 12",
+
+            "Fuel Flow / Pressure Ratio (Sensor 12)",
+
             min_value=518.690,
+
             max_value=523.380,
+
             value=521.480,
-            step=0.001,
-            format="%.3f"
+
+            step=0.001
+
         )
-        st.caption("Range: 518.690 – 523.380")
+
+        st.caption(
+            "Range: 518.690 – 523.380 | Typical: 521.480"
+        )
+
+
+    # ========================================================
+    # PREDICT BUTTON
+    # ========================================================
 
     st.markdown("---")
 
-    predict_clicked = st.button(
-        "🔮 Predict Engine RUL",
-        type="primary",
+    predict_button = st.button(
+
+        "🚀 Analyze Engine Condition",
+
         use_container_width=True
+
     )
 
-    if predict_clicked:
-        user_values = {
-            "cycle": cycle,
-            "sensor_11": sensor_11,
-            "sensor_9": sensor_9,
+
+    # ========================================================
+    # PREDICTION
+    # ========================================================
+
+    if predict_button:
+
+
+        # ====================================================
+        # CREATE MODEL INPUT
+        # ====================================================
+
+        input_data = default_values.copy()
+
+        input_data["cycle"] = cycle
+
+        input_data["sensor_11"] = sensor_11
+
+        input_data["sensor_9"] = sensor_9
+
+        input_data["sensor_4"] = sensor_4
+
+        input_data["sensor_14"] = sensor_14
+
+        input_data["sensor_12"] = sensor_12
+
+
+        input_df = pd.DataFrame(
+            [input_data]
+        )
+
+        input_df = input_df[
+            features
+        ]
+
+
+        # ====================================================
+        # RANDOM FOREST PREDICTIONS
+        # ====================================================
+
+        tree_predictions = np.array([
+
+            tree.predict(input_df)[0]
+
+            for tree in model.estimators_
+
+        ])
+
+
+        predicted_rul = np.mean(
+            tree_predictions
+        )
+
+        predicted_rul = max(
+            0,
+            predicted_rul
+        )
+
+        rul_cycles = round(
+            predicted_rul
+        )
+
+
+        # ====================================================
+        # MODEL PREDICTION RANGE
+        # ====================================================
+
+        lower_bound = max(
+
+            0,
+
+            np.percentile(
+                tree_predictions,
+                10
+            )
+
+        )
+
+        upper_bound = max(
+
+            0,
+
+            np.percentile(
+                tree_predictions,
+                90
+            )
+
+        )
+
+        prediction_range = (
+
+            f"{round(lower_bound)} – "
+            f"{round(upper_bound)} cycles"
+
+        )
+
+
+        # ====================================================
+        # ENGINE CONDITION
+        # ====================================================
+
+        if predicted_rul > 50:
+
+            condition = "Healthy"
+
+            risk = "Low"
+
+            priority = "Routine"
+
+            icon = "🟢"
+
+            recommendation = (
+
+                "Continue routine monitoring and "
+                "follow the scheduled maintenance plan."
+
+            )
+
+            status_message = (
+
+                "The predicted remaining life is relatively "
+                "high. No immediate maintenance action is required."
+
+            )
+
+            progress_value = 100
+
+            risk_score = round(
+
+                min(
+
+                    35,
+
+                    max(
+
+                        0,
+
+                        100 -
+                        (predicted_rul / 150) * 100
+
+                    )
+
+                )
+
+            )
+
+
+        elif predicted_rul >= 20:
+
+            condition = "Warning"
+
+            risk = "Medium"
+
+            priority = "Preventive"
+
+            icon = "🟡"
+
+            recommendation = (
+
+                "Increase monitoring frequency and "
+                "schedule preventive maintenance."
+
+            )
+
+            status_message = (
+
+                "The engine has a moderate remaining "
+                "useful life. Preventive maintenance "
+                "should be planned."
+
+            )
+
+            progress_value = int(
+
+                (predicted_rul / 50) * 100
+
+            )
+
+            risk_score = round(
+
+                35 +
+                ((50 - predicted_rul) / 30) * 30
+
+            )
+
+
+        else:
+
+            condition = "Critical"
+
+            risk = "High"
+
+            priority = "Immediate"
+
+            icon = "🔴"
+
+            recommendation = (
+
+                "Immediate engine inspection is recommended. "
+                "Prioritize maintenance planning."
+
+            )
+
+            status_message = (
+
+                "The engine has limited remaining useful life. "
+                "Immediate attention is recommended."
+
+            )
+
+            progress_value = int(
+
+                (predicted_rul / 20) * 100
+
+            )
+
+            risk_score = round(
+
+                65 +
+                ((20 - predicted_rul) / 20) * 35
+
+            )
+
+
+        risk_score = max(
+
+            0,
+
+            min(
+                risk_score,
+                100
+            )
+
+        )
+
+        progress_value = max(
+
+            0,
+
+            min(
+                progress_value,
+                100
+            )
+
+        )
+
+
+        # ====================================================
+        # SENSOR MONITORING
+        # ====================================================
+
+        sensor_values = {
+
             "sensor_4": sensor_4,
-            "sensor_14": sensor_14,
-            "sensor_12": sensor_12
+
+            "sensor_9": sensor_9,
+
+            "sensor_11": sensor_11,
+
+            "sensor_12": sensor_12,
+
+            "sensor_14": sensor_14
+
         }
 
-        result = predict_engine(user_values)
 
-        # Save latest result so report remains available on reruns.
-        st.session_state["latest_result"] = result
-        st.session_state["latest_user_values"] = user_values
+        sensor_results = []
 
-    if "latest_result" in st.session_state:
 
-        result = st.session_state["latest_result"]
-        user_values = st.session_state["latest_user_values"]
+        for sensor, value in sensor_values.items():
 
-        st.markdown("## 📊 Prediction Result")
+            info = sensor_ranges[
+                sensor
+            ]
 
-        # Main result cards
-        c1, c2, c3, c4 = st.columns(4)
+            minimum = info["min"]
 
-        with c1:
-            st.metric(
-                "Predicted RUL",
-                f"{result['predicted_rul']:.1f} cycles"
+            maximum = info["max"]
+
+            median = info["median"]
+
+            range_width = (
+                maximum - minimum
             )
 
-        with c2:
+            deviation = (
+
+                abs(
+                    value - median
+                )
+                /
+                range_width
+                *
+                100
+
+            )
+
+
+            if deviation < 20:
+
+                sensor_status = "Normal"
+
+                sensor_icon = "🟢"
+
+
+            elif deviation < 40:
+
+                sensor_status = "Moderate Deviation"
+
+                sensor_icon = "🟡"
+
+
+            else:
+
+                sensor_status = "High Deviation"
+
+                sensor_icon = "🔴"
+
+
+            sensor_results.append({
+
+                "Sensor": info["name"],
+
+                "Symbol": info["symbol"],
+
+                "Current Reading": round(
+                    value,
+                    3
+                ),
+
+                "Typical Value": round(
+                    median,
+                    3
+                ),
+
+                "Status":
+                    f"{sensor_icon} "
+                    f"{sensor_status}"
+
+            })
+
+
+        sensor_df = pd.DataFrame(
+            sensor_results
+        )
+
+
+        # ====================================================
+        # DASHBOARD
+        # ====================================================
+
+        st.markdown("---")
+
+        st.title(
+            "📊 Engine Monitoring Dashboard"
+        )
+
+        st.write(
+            "AI-based assessment of the current "
+            "engine operating condition."
+        )
+
+
+        # ====================================================
+        # KPI CARDS
+        # ====================================================
+
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+
+
+        with kpi1:
+
             st.metric(
+
+                "✈️ Predicted RUL",
+
+                f"{rul_cycles} cycles"
+
+            )
+
+
+        with kpi2:
+
+            st.metric(
+
                 "Engine Condition",
-                result["condition"]
+
+                f"{icon} {condition}"
+
             )
 
-        with c3:
+
+        with kpi3:
+
             st.metric(
-                "Risk Score",
-                f"{result['risk']:.1f}%"
+
+                "⚠️ Risk Score",
+
+                f"{risk_score}%"
+
             )
 
-        with c4:
+
+        with kpi4:
+
             st.metric(
-                "Maintenance Priority",
-                result["priority"]
+
+                "🛠️ Maintenance Priority",
+
+                priority
+
             )
 
-        st.caption(
-            "Risk score is a project-defined 0–100% indicator derived from predicted RUL; it is not a probability of failure."
+
+        # ====================================================
+        # RUL VISUAL
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🔋 Remaining Engine Life"
         )
 
-        # RUL progress
-        st.markdown("### 📈 RUL Monitoring")
-
-        # Display relative to a 0–100+ cycle monitoring scale.
-        progress_value = int(
-            min(100, max(0, result["predicted_rul"]))
+        st.progress(
+            progress_value
         )
-        st.progress(progress_value)
 
         st.caption(
+
             f"Predicted remaining useful life: "
-            f"{result['predicted_rul']:.1f} cycles"
+            f"{rul_cycles} cycles"
+
         )
 
-        # Prediction range
+
+        # ====================================================
+        # MODEL RANGE
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🎯 Model Prediction Range"
+        )
+
         range_col1, range_col2 = st.columns(2)
 
+
         with range_col1:
-            st.info(
-                f"**Model Prediction Range**\n\n"
-                f"{result['lower']:.1f} – {result['upper']:.1f} cycles"
+
+            st.metric(
+
+                "Predicted RUL",
+
+                f"{rul_cycles} cycles"
+
             )
+
 
         with range_col2:
-            st.info(
-                "**Interpretation**\n\n"
-                "The range represents variation among individual "
-                "Random Forest tree predictions."
+
+            st.metric(
+
+                "Model Prediction Range",
+
+                prediction_range
+
             )
 
-        # Condition message
-        if result["condition"] == "Healthy":
+
+        st.caption(
+
+            "The prediction range represents the variation "
+            "among individual Random Forest tree predictions. "
+            "It is not a formal statistical confidence interval."
+
+        )
+
+
+        # ====================================================
+        # ENGINE STATUS
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+
+            f"{icon} Engine Status: "
+            f"{condition}"
+
+        )
+
+
+        if condition == "Healthy":
+
             st.success(
-                f"🟢 **Healthy:** {result['recommendation']}"
-            )
-        elif result["condition"] == "Warning":
-            st.warning(
-                f"🟠 **Warning:** {result['recommendation']}"
-            )
-        else:
-            st.error(
-                f"🔴 **Critical:** {result['recommendation']}"
+
+                f"**Healthy Condition**\n\n"
+                f"{status_message}"
+
             )
 
-        # Current parameters
-        st.markdown("### 🔧 Current Engine Parameters")
+        elif condition == "Warning":
+
+            st.warning(
+
+                f"**Warning Condition**\n\n"
+                f"{status_message}"
+
+            )
+
+        else:
+
+            st.error(
+
+                f"**Critical Condition**\n\n"
+                f"{status_message}"
+
+            )
+
+
+        # ====================================================
+        # SENSOR MONITORING
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🔬 Sensor Condition Monitoring"
+        )
+
+        st.write(
+
+            "Current sensor readings are compared "
+            "with their observed operating ranges "
+            "in the FD001 training dataset."
+
+        )
+
+        st.dataframe(
+
+            sensor_df,
+
+            use_container_width=True,
+
+            hide_index=True
+
+        )
+
+
+        # ====================================================
+        # MAINTENANCE
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🛠️ Maintenance Recommendation"
+        )
+
+        st.info(
+
+            f"**Maintenance Priority: "
+            f"{priority}**\n\n"
+            f"{recommendation}"
+
+        )
+
+
+        # ====================================================
+        # CURRENT PARAMETERS
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "📋 Current Engine Parameters"
+        )
+
 
         p1, p2, p3 = st.columns(3)
 
+
         with p1:
-            st.metric("Engine Cycle", f"{cycle:.0f}")
-            st.metric("Sensor 11", f"{sensor_11:.3f}")
+
+            st.metric(
+                "Engine Cycle",
+                f"{cycle:.0f}"
+            )
+
+            st.metric(
+                "LPT Outlet Temperature",
+                f"{sensor_4:.3f}"
+            )
+
 
         with p2:
-            st.metric("Sensor 9", f"{sensor_9:.3f}")
-            st.metric("Sensor 4", f"{sensor_4:.3f}")
+
+            st.metric(
+                "Physical Core Speed",
+                f"{sensor_9:.3f}"
+            )
+
+            st.metric(
+                "HPC Outlet Pressure",
+                f"{sensor_11:.3f}"
+            )
+
 
         with p3:
-            st.metric("Sensor 14", f"{sensor_14:.3f}")
-            st.metric("Sensor 12", f"{sensor_12:.3f}")
 
-        # Monitoring table
-        st.markdown("### 🔍 Sensor Condition Monitoring")
+            st.metric(
+                "Fuel Flow / Pressure Ratio",
+                f"{sensor_12:.3f}"
+            )
 
-        monitoring_rows = []
+            st.metric(
+                "Corrected Core Speed",
+                f"{sensor_14:.3f}"
+            )
 
-        for key in [
-            "cycle", "sensor_11", "sensor_9",
-            "sensor_4", "sensor_14", "sensor_12"
-        ]:
-            low, high = INPUT_RANGES[key]
-            current = user_values[key]
-            median = DEFAULT_VALUES[key]
 
-            status = get_range_status(key, current)
+        # ====================================================
+        # SUMMARY
+        # ====================================================
 
-            monitoring_rows.append({
-                "Parameter": INPUT_LABELS[key],
-                "Current Value": (
-                    f"{current:.0f}"
-                    if key == "cycle"
-                    else f"{current:.3f}"
-                ),
-                "Typical Range": (
-                    f"{low:.0f} – {high:.0f}"
-                    if key == "cycle"
-                    else f"{low:.3f} – {high:.3f}"
-                ),
-                "Status": status
-            })
-
-        st.dataframe(
-            pd.DataFrame(monitoring_rows),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        # Maintenance recommendation
-        st.markdown("### 🛠️ Maintenance Recommendation")
-
-        st.write(result["recommendation"])
-
-        # PDF report
         st.markdown("---")
-        st.markdown("## 📄 Generate Maintenance Analysis Report")
 
-        st.write(
-            "Download the current prediction, engine parameters, "
-            "model information, condition assessment, and maintenance "
-            "recommendation as a professional PDF report."
+        st.subheader(
+            "📝 AI Monitoring Summary"
         )
 
-        pdf_bytes = create_pdf_report(result, user_values)
+
+        summary_col1, summary_col2 = st.columns(2)
+
+
+        with summary_col1:
+
+            st.write(
+                f"**Predicted RUL:** "
+                f"{rul_cycles} cycles"
+            )
+
+            st.write(
+                f"**Engine Condition:** "
+                f"{icon} {condition}"
+            )
+
+            st.write(
+                f"**Risk Level:** "
+                f"{risk}"
+            )
+
+            st.write(
+                f"**Risk Score:** "
+                f"{risk_score}%"
+            )
+
+
+        with summary_col2:
+
+            st.write(
+                "**Recommended Action:**"
+            )
+
+            st.write(
+                recommendation
+            )
+
+            st.write(
+                f"**Maintenance Priority:** "
+                f"{priority}"
+            )
+
+        # ====================================================
+        # PDF REPORT
+        # ====================================================
+
+        st.markdown("---")
+
+        pdf_data = create_pdf_report(
+            predicted_rul=predicted_rul,
+            rul_cycles=rul_cycles,
+            prediction_range=prediction_range,
+            condition=condition,
+            risk=risk,
+            risk_score=risk_score,
+            priority=priority,
+            recommendation=recommendation,
+            cycle=cycle,
+            sensor_4=sensor_4,
+            sensor_9=sensor_9,
+            sensor_11=sensor_11,
+            sensor_12=sensor_12,
+            sensor_14=sensor_14
+        )
 
         st.download_button(
-            label="📥 Download PDF Report",
-            data=pdf_bytes,
-            file_name="Aircraft_Engine_RUL_Analysis_Report.pdf",
+            "📥 Download PDF Report",
+            data=pdf_data,
+            file_name="aircraft_engine_rul_report.pdf",
             mime="application/pdf",
-            type="primary",
             use_container_width=True
         )
 
-        st.caption(
-            "The PDF is generated dynamically from the latest prediction."
-        )
 
+# ============================================================
 # ============================================================
 # PAGE 2 — DATASET EXPLORER
 # ============================================================
+# ============================================================
+
 elif page == "📂 Dataset Explorer":
 
-    st.title("📂 Dataset Explorer")
-
-    if train_df is None:
-        st.error(
-            "train_FD001.txt was not found. Add the dataset file "
-            "to the same folder as app.py to enable this section."
-        )
-        st.stop()
-
-    # Calculate RUL
-    explorer_df = train_df.copy()
-    max_cycles = explorer_df.groupby("unit_id")["cycle"].transform("max")
-    explorer_df["RUL"] = max_cycles - explorer_df["cycle"]
-
-    st.markdown("### 📊 Dataset Overview")
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        st.metric("Training Records", f"{len(explorer_df):,}")
-
-    with c2:
-        st.metric("Engines", f"{explorer_df['unit_id'].nunique():,}")
-
-    with c3:
-        st.metric("Features", f"{len(DATA_COLUMNS) - 1}")
-
-    with c4:
-        st.metric("Maximum RUL", f"{explorer_df['RUL'].max():.0f} cycles")
-
-    st.markdown("### 🧹 Data Quality")
-
-    q1, q2 = st.columns(2)
-
-    with q1:
-        st.metric(
-            "Missing Values",
-            f"{int(explorer_df.isna().sum().sum()):,}"
-        )
-
-    with q2:
-        st.metric(
-            "Duplicate Rows",
-            f"{int(explorer_df.duplicated().sum()):,}"
-        )
-
-    st.markdown("### 👀 Dataset Preview")
-
-    st.dataframe(
-        explorer_df.head(100),
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.markdown("---")
-
-    st.markdown("### 🔍 Engine History Explorer")
-
-    selected_engine = st.selectbox(
-        "Select Engine ID",
-        sorted(explorer_df["unit_id"].unique())
-    )
-
-    engine_history = explorer_df[
-        explorer_df["unit_id"] == selected_engine
-    ].copy()
-
-    st.write(
-        f"Engine **{selected_engine}** contains "
-        f"**{len(engine_history)} cycles**."
-    )
-
-    st.dataframe(
-        engine_history,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.markdown("### 🧮 RUL Calculation")
-
-    st.code(
-        "RUL = Maximum Cycle of Engine - Current Cycle",
-        language="text"
+    st.header(
+        "📂 NASA C-MAPSS FD001 Dataset Explorer"
     )
 
     st.write(
-        "For each engine, the maximum observed cycle is treated as "
-        "the final cycle in the training sequence. RUL is calculated "
-        "as the difference between that maximum cycle and the current cycle."
+        "Explore the training data used to develop "
+        "the aircraft engine RUL prediction model."
     )
 
-    st.markdown("### 📌 Model Features")
 
-    st.dataframe(
-        pd.DataFrame({
-            "Model Feature": MODEL_FEATURES
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
+    # ========================================================
+    # DATASET CHECK
+    # ========================================================
 
+    if dataset is None:
+
+        st.warning(
+            "train_FD001.txt was not found in the project folder."
+        )
+
+        st.info(
+            "Add train_FD001.txt to the same folder as app.py "
+            "and restart the application."
+        )
+
+        uploaded_file = st.file_uploader(
+
+            "Or upload train_FD001.txt",
+
+            type=["txt"]
+
+        )
+
+
+        if uploaded_file is not None:
+
+            dataset = pd.read_csv(
+
+                uploaded_file,
+
+                sep=r"\s+",
+
+                header=None,
+
+                names=DATA_COLUMNS
+
+            )
+
+
+    # ========================================================
+    # DISPLAY DATA
+    # ========================================================
+
+    if dataset is not None:
+
+        # ====================================================
+        # CALCULATE RUL
+        # ====================================================
+
+        max_cycles = (
+
+            dataset
+            .groupby("unit_id")["cycle"]
+            .max()
+            .reset_index()
+
+        )
+
+        max_cycles.rename(
+
+            columns={
+                "cycle": "max_cycle"
+            },
+
+            inplace=True
+
+        )
+
+
+        dataset_with_rul = dataset.merge(
+
+            max_cycles,
+
+            on="unit_id",
+
+            how="left"
+
+        )
+
+
+        dataset_with_rul["RUL"] = (
+
+            dataset_with_rul["max_cycle"]
+            -
+            dataset_with_rul["cycle"]
+
+        )
+
+
+        # ====================================================
+        # DATASET KPIs
+        # ====================================================
+
+        total_records = len(
+            dataset
+        )
+
+        total_engines = dataset[
+            "unit_id"
+        ].nunique()
+
+        total_features = len(
+            dataset.columns
+        )
+
+        max_cycle = int(
+            dataset["cycle"].max()
+        )
+
+
+        d1, d2, d3, d4 = st.columns(4)
+
+
+        with d1:
+
+            st.metric(
+                "Training Records",
+                f"{total_records:,}"
+            )
+
+
+        with d2:
+
+            st.metric(
+                "Training Engines",
+                total_engines
+            )
+
+
+        with d3:
+
+            st.metric(
+                "Dataset Columns",
+                total_features
+            )
+
+
+        with d4:
+
+            st.metric(
+                "Maximum Cycle",
+                max_cycle
+            )
+
+
+        # ====================================================
+        # DATASET QUALITY
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🔎 Dataset Quality"
+        )
+
+
+        missing_values = int(
+            dataset.isnull()
+            .sum()
+            .sum()
+        )
+
+        duplicate_rows = int(
+            dataset.duplicated()
+            .sum()
+        )
+
+
+        q1, q2, q3 = st.columns(3)
+
+
+        with q1:
+
+            st.metric(
+                "Missing Values",
+                missing_values
+            )
+
+
+        with q2:
+
+            st.metric(
+                "Duplicate Rows",
+                duplicate_rows
+            )
+
+
+        with q3:
+
+            st.metric(
+                "Unique Engines",
+                total_engines
+            )
+
+
+        # ====================================================
+        # DATA PREVIEW
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "📄 Dataset Preview"
+        )
+
+        preview_rows = st.slider(
+
+            "Number of rows to display",
+
+            min_value=5,
+
+            max_value=50,
+
+            value=10,
+
+            step=5
+
+        )
+
+
+        st.dataframe(
+
+            dataset_with_rul.head(
+                preview_rows
+            ),
+
+            use_container_width=True,
+
+            hide_index=True
+
+        )
+
+
+        # ====================================================
+        # ENGINE EXPLORER
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🔍 Explore Individual Engine"
+        )
+
+        selected_engine = st.selectbox(
+
+            "Select Engine ID",
+
+            sorted(
+                dataset["unit_id"]
+                .unique()
+            )
+
+        )
+
+
+        engine_data = (
+
+            dataset_with_rul[
+                dataset_with_rul["unit_id"]
+                == selected_engine
+            ]
+
+        )
+
+
+        engine_max_cycle = int(
+            engine_data["cycle"].max()
+        )
+
+        engine_current_rul = int(
+            engine_data["RUL"].iloc[0]
+        )
+
+
+        e1, e2, e3 = st.columns(3)
+
+
+        with e1:
+
+            st.metric(
+                "Engine ID",
+                selected_engine
+            )
+
+
+        with e2:
+
+            st.metric(
+                "Total Cycles",
+                engine_max_cycle
+            )
+
+
+        with e3:
+
+            st.metric(
+                "Initial RUL",
+                engine_current_rul
+            )
+
+
+        st.write(
+            f"**Engine {selected_engine} cycle history**"
+        )
+
+
+        engine_display = engine_data[
+
+            [
+                "unit_id",
+                "cycle",
+                "sensor_4",
+                "sensor_9",
+                "sensor_11",
+                "sensor_12",
+                "sensor_14",
+                "RUL"
+            ]
+
+        ]
+
+
+        st.dataframe(
+
+            engine_display,
+
+            use_container_width=True,
+
+            hide_index=True
+
+        )
+
+
+        # ====================================================
+        # RUL EXPLANATION
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "🧮 How RUL Is Calculated"
+        )
+
+        st.code(
+            "RUL = Maximum Cycle of Engine - Current Cycle"
+        )
+
+        st.write(
+            "For example, if an engine's maximum training "
+            "cycle is 200 and its current cycle is 150:"
+        )
+
+        st.info(
+            "RUL = 200 − 150 = 50 cycles"
+        )
+
+
+        # ====================================================
+        # COLUMN INFORMATION
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "📋 Dataset Columns"
+        )
+
+
+        column_info = pd.DataFrame({
+
+            "Column": DATA_COLUMNS,
+
+            "Description": [
+
+                "Engine identifier",
+
+                "Operating cycle",
+
+                "Operational setting 1",
+
+                "Operational setting 2",
+
+                "Operational setting 3",
+
+                "Sensor 1",
+
+                "Sensor 2",
+
+                "Sensor 3",
+
+                "LPT outlet temperature",
+
+                "Sensor 5",
+
+                "Sensor 6",
+
+                "Sensor 7",
+
+                "Sensor 8",
+
+                "Physical core speed",
+
+                "Sensor 10",
+
+                "HPC outlet static pressure",
+
+                "Fuel flow / pressure ratio",
+
+                "Sensor 13",
+
+                "Corrected core speed",
+
+                "Sensor 15",
+
+                "Sensor 16",
+
+                "Sensor 17",
+
+                "Sensor 18",
+
+                "Sensor 19",
+
+                "Sensor 20",
+
+                "Sensor 21"
+
+            ]
+
+        })
+
+
+        st.dataframe(
+
+            column_info,
+
+            use_container_width=True,
+
+            hide_index=True
+
+        )
+
+
+# ============================================================
 # ============================================================
 # PAGE 3 — MODEL INFORMATION
 # ============================================================
+# ============================================================
+
 else:
 
-    st.title("🤖 Model Information")
-
-    st.markdown("### 🧠 Model Overview")
-
-    info1, info2, info3 = st.columns(3)
-
-    with info1:
-        st.metric("Algorithm", "Random Forest")
-
-    with info2:
-        st.metric("Trees", str(len(model.estimators_)))
-
-    with info3:
-        st.metric("Model Features", str(len(MODEL_FEATURES)))
-
-    st.markdown("### 📚 Dataset Information")
-
-    st.write("""
-    **NASA C-MAPSS FD001** is a simulated aircraft engine degradation
-    dataset designed for prognostics and Remaining Useful Life prediction.
-    FD001 contains one operating condition and one fault mode.
-    """)
-
-    st.markdown("### 🔄 Preprocessing Workflow")
-
-    st.markdown("""
-    1. Load the NASA C-MAPSS FD001 training data.
-    2. Assign column names to the raw dataset.
-    3. Calculate training RUL using maximum cycle minus current cycle.
-    4. Check missing values and duplicate records.
-    5. Remove constant features.
-    6. Keep 18 useful model features.
-    7. Split data at the engine level to reduce data leakage.
-    8. Train the Random Forest regression model.
-    9. Save the trained model using Joblib.
-    10. Deploy the model through Streamlit.
-    """)
-
-    st.markdown("### 📈 Validation Performance")
-
-    metrics_df = pd.DataFrame({
-        "Metric": ["MAE", "RMSE", "R²"],
-        "Value": ["23.78 cycles", "31.31 cycles", "0.7725"]
-    })
-
-    st.dataframe(
-        metrics_df,
-        use_container_width=True,
-        hide_index=True
+    st.header(
+        "🤖 Machine Learning Model Information"
     )
 
-    st.markdown("### 🚦 Condition Rules")
-
-    rules_df = pd.DataFrame({
-        "Predicted RUL": ["> 50 cycles", "20 – 50 cycles", "< 20 cycles"],
-        "Condition": ["Healthy", "Warning", "Critical"],
-        "Risk Score": ["0–33%", "34–66%", "67–100%"],
-        "Maintenance Priority": ["Routine", "Preventive", "Immediate"]
-    })
-
-    st.dataframe(
-        rules_df,
-        use_container_width=True,
-        hide_index=True
+    st.write(
+        "Technical overview of the preprocessing, "
+        "model and evaluation used in the project."
     )
 
-    st.markdown("### 🏗️ Application Workflow")
 
-    st.code(
-        """User Input
-    ↓
-18-Feature Model Input
-    ↓
-Random Forest Regression
-    ↓
-Predicted RUL
-    ↓
-Condition Classification
-    ↓
-Risk & Maintenance Priority
-    ↓
-Condition Monitoring Dashboard
-    ↓
-PDF Maintenance Report""",
-        language="text"
+    # ========================================================
+    # MODEL OVERVIEW
+    # ========================================================
+
+    st.subheader(
+        "🌳 Model Overview"
     )
 
-    st.markdown("### ⚠️ Project Note")
+
+    m1, m2, m3 = st.columns(3)
+
+
+    with m1:
+
+        st.metric(
+            "Algorithm",
+            "Random Forest"
+        )
+
+
+    with m2:
+
+        st.metric(
+            "Model Features",
+            "18"
+        )
+
+
+    with m3:
+
+        st.metric(
+            "Decision Trees",
+            "50"
+        )
+
+
+    st.write(
+        "The Random Forest Regressor predicts the remaining "
+        "useful life of an aircraft engine based on engine "
+        "operating conditions and sensor measurements."
+    )
+
+
+    # ========================================================
+    # DATASET INFORMATION
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "📊 Dataset"
+    )
+
+
+    st.write(
+        "**Dataset:** NASA C-MAPSS FD001"
+    )
+
+    st.write(
+        "**Training Engines:** 100"
+    )
+
+    st.write(
+        "**Training Records:** 20,631"
+    )
+
+    st.write(
+        "**Operating Conditions:** 1"
+    )
+
+    st.write(
+        "**Fault Mode:** 1"
+    )
+
 
     st.info(
-        "The sensor columns in C-MAPSS are anonymized dataset indicators. "
-        "This application is intended for project-level predictive "
-        "maintenance demonstration and not as a certified aviation "
-        "maintenance decision system."
+        "C-MAPSS is a simulated turbofan engine dataset. "
+        "The sensor measurements represent simulated engine "
+        "operating conditions."
     )
+
+
+    # ========================================================
+    # PREPROCESSING
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "⚙️ Data Preprocessing"
+    )
+
+
+    preprocessing_steps = [
+
+        "Loaded NASA C-MAPSS FD001 training data.",
+
+        "Assigned meaningful column names.",
+
+        "Calculated training RUL from engine cycle history.",
+
+        "Checked missing values and duplicate records.",
+
+        "Removed constant features with no variation.",
+
+        "Used engine-level train/validation splitting.",
+
+        "Selected 18 useful features for model training."
+
+    ]
+
+
+    for step in preprocessing_steps:
+
+        st.write(
+            f"✓ {step}"
+        )
+
+
+    # ========================================================
+    # FEATURES
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "🔢 Model Features"
+    )
+
+
+    feature_df = pd.DataFrame({
+
+        "Feature": features
+
+    })
+
+
+    st.dataframe(
+
+        feature_df,
+
+        use_container_width=True,
+
+        hide_index=True
+
+    )
+
+
+    # ========================================================
+    # MODEL PERFORMANCE
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "📈 Model Performance"
+    )
+
+
+    performance_df = pd.DataFrame({
+
+        "Metric": [
+
+            "Validation MAE",
+
+            "Validation RMSE",
+
+            "Validation R²"
+
+        ],
+
+        "Value": [
+
+            "23.78 cycles",
+
+            "31.31 cycles",
+
+            "0.7725"
+
+        ]
+
+    })
+
+
+    st.dataframe(
+
+        performance_df,
+
+        use_container_width=True,
+
+        hide_index=True
+
+    )
+
+
+    st.write(
+        "Validation results are based on the lightweight "
+        "Random Forest model used in the deployed application."
+    )
+
+
+    # ========================================================
+    # CONDITION RULES
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "🚦 Engine Condition Rules"
+    )
+
+
+    condition_df = pd.DataFrame({
+
+        "Predicted RUL": [
+
+            "> 50 cycles",
+
+            "20 – 50 cycles",
+
+            "< 20 cycles"
+
+        ],
+
+        "Condition": [
+
+            "🟢 Healthy",
+
+            "🟡 Warning",
+
+            "🔴 Critical"
+
+        ],
+
+        "Recommended Action": [
+
+            "Routine monitoring",
+
+            "Preventive maintenance",
+
+            "Immediate inspection"
+
+        ]
+
+    })
+
+
+    st.dataframe(
+
+        condition_df,
+
+        use_container_width=True,
+
+        hide_index=True
+
+    )
+
+
+    st.caption(
+        "These condition thresholds are project-defined "
+        "decision rules and are not official NASA labels."
+    )
+
+
+    # ========================================================
+    # PROJECT WORKFLOW
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "🔄 Project Workflow"
+    )
+
+
+    st.write(
+        "NASA C-MAPSS Dataset"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "Data Preprocessing"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "Feature Selection"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "Random Forest Regression"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "RUL Prediction"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "Risk & Condition Assessment"
+    )
+
+    st.write(
+        "↓"
+    )
+
+    st.write(
+        "Maintenance Recommendation"
+    )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown("---")
+
+st.caption(
+    "NASA C-MAPSS FD001 | "
+    "Random Forest Regressor | "
+    "Aircraft Engine Predictive Maintenance"
+)
