@@ -178,13 +178,37 @@ train_df = load_training_data()
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-def classify_condition(rul):
+def calculate_risk_percentage(rul):
+    """Convert project RUL bands into a continuous 0–100% risk score.
+
+    The score is a project-defined indicator, not a probability of failure.
+    Healthy (>50 cycles) maps to 0–33%, Warning (20–50) to 34–66%,
+    and Critical (<20) to 67–100%.
+    """
+    rul = max(0.0, float(rul))
+    max_rul = 361.0
+
     if rul > 50:
-        return "Healthy", "Low", "Routine"
+        # 361 cycles -> 0%, 50 cycles -> 33%
+        risk = 33.0 * (max_rul - rul) / (max_rul - 50.0)
     elif rul >= 20:
-        return "Warning", "Medium", "Preventive"
+        # 50 cycles -> 33%, 20 cycles -> 66%
+        risk = 33.0 + (50.0 - rul) * (33.0 / 30.0)
     else:
-        return "Critical", "High", "Immediate"
+        # 20 cycles -> 66%, 0 cycles -> 100%
+        risk = 66.0 + (20.0 - rul) * (34.0 / 20.0)
+
+    return round(float(np.clip(risk, 0.0, 100.0)), 1)
+
+def classify_condition(rul):
+    risk_percentage = calculate_risk_percentage(rul)
+
+    if rul > 50:
+        return "Healthy", risk_percentage, "Routine"
+    elif rul >= 20:
+        return "Warning", risk_percentage, "Preventive"
+    else:
+        return "Critical", risk_percentage, "Immediate"
 
 def get_recommendation(condition):
     if condition == "Healthy":
@@ -202,6 +226,13 @@ def get_recommendation(condition):
             "Immediate inspection is recommended. Prioritize "
             "maintenance planning and investigate the engine condition."
         )
+
+def get_range_status(key, current):
+    """Return a simple dataset-range status for a user-entered value."""
+    low, high = INPUT_RANGES[key]
+    if low <= current <= high:
+        return "Within Range"
+    return "Outside Range"
 
 def build_input_dataframe(user_values):
     values = DEFAULT_VALUES.copy()
@@ -315,7 +346,7 @@ def create_pdf_report(result, user_values):
         ["Model Prediction Range",
          f"{result['lower']:.1f} – {result['upper']:.1f} cycles"],
         ["Engine Condition", result["condition"]],
-        ["Risk Level", result["risk"]],
+        ["Risk Score", f"{result['risk']:.1f}%"],
         ["Maintenance Priority", result["priority"]],
     ]
 
@@ -339,6 +370,11 @@ def create_pdf_report(result, user_values):
     # Assessment
     story.append(Paragraph("2. Condition Assessment", heading_style))
     story.append(Paragraph(
+        f"Risk score: {result['risk']:.1f}% (project-defined indicator; not a probability of failure).",
+        body_style
+    ))
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(
         result["recommendation"],
         body_style
     ))
@@ -353,7 +389,7 @@ def create_pdf_report(result, user_values):
     # Input parameters
     story.append(Paragraph("3. Current Engine Parameters", heading_style))
 
-    parameter_rows = [["Parameter", "Current Value", "Training Range"]]
+    parameter_rows = [["Parameter", "Current Value", "Typical Range", "Status"]]
 
     for key in [
         "cycle", "sensor_11", "sensor_9",
@@ -372,12 +408,13 @@ def create_pdf_report(result, user_values):
         parameter_rows.append([
             INPUT_LABELS[key],
             value_text,
-            range_text
+            range_text,
+            get_range_status(key, value)
         ])
 
     parameter_table = Table(
         parameter_rows,
-        colWidths=[65 * mm, 45 * mm, 55 * mm]
+        colWidths=[50 * mm, 35 * mm, 50 * mm, 30 * mm]
     )
 
     parameter_table.setStyle(TableStyle([
@@ -633,8 +670,8 @@ if page == "🏠 Prediction Dashboard":
 
         with c3:
             st.metric(
-                "Risk Level",
-                result["risk"]
+                "Risk Score",
+                f"{result['risk']:.1f}%"
             )
 
         with c4:
@@ -642,6 +679,10 @@ if page == "🏠 Prediction Dashboard":
                 "Maintenance Priority",
                 result["priority"]
             )
+
+        st.caption(
+            "Risk score is a project-defined 0–100% indicator derived from predicted RUL; it is not a probability of failure."
+        )
 
         # RUL progress
         st.markdown("### 📈 RUL Monitoring")
@@ -717,10 +758,7 @@ if page == "🏠 Prediction Dashboard":
             current = user_values[key]
             median = DEFAULT_VALUES[key]
 
-            if low <= current <= high:
-                status = "Within training range"
-            else:
-                status = "Outside training range"
+            status = get_range_status(key, current)
 
             monitoring_rows.append({
                 "Parameter": INPUT_LABELS[key],
@@ -729,12 +767,7 @@ if page == "🏠 Prediction Dashboard":
                     if key == "cycle"
                     else f"{current:.3f}"
                 ),
-                "Training Median": (
-                    f"{median:.0f}"
-                    if key == "cycle"
-                    else f"{median:.3f}"
-                ),
-                "Training Range": (
+                "Typical Range": (
                     f"{low:.0f} – {high:.0f}"
                     if key == "cycle"
                     else f"{low:.3f} – {high:.3f}"
@@ -945,7 +978,7 @@ else:
     rules_df = pd.DataFrame({
         "Predicted RUL": ["> 50 cycles", "20 – 50 cycles", "< 20 cycles"],
         "Condition": ["Healthy", "Warning", "Critical"],
-        "Risk": ["Low", "Medium", "High"],
+        "Risk Score": ["0–33%", "34–66%", "67–100%"],
         "Maintenance Priority": ["Routine", "Preventive", "Immediate"]
     })
 
