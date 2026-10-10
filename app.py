@@ -17,7 +17,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 st.set_page_config(
     page_title="Aircraft Engine Predictive Maintenance",
-    page_icon="âœˆï¸",
+    page_icon="✈️",
     layout="wide"
 )
 
@@ -212,7 +212,7 @@ def create_pdf_report(
         ["Decision Trees", "50"],
         ["Validation MAE", "23.78 cycles"],
         ["Validation RMSE", "31.31 cycles"],
-        ["Validation RÂ²", "0.7725"]
+        ["Validation R²", "0.7725"]
     ]
 
     model_table = Table(
@@ -385,7 +385,7 @@ sensor_ranges = {
 
         "name": "Fuel Flow / Pressure Ratio",
 
-        "symbol": "Ï†",
+        "symbol": "φ",
 
         "min": 518.690,
 
@@ -435,11 +435,11 @@ if os.path.exists("train_FD001.txt"):
 
 with st.sidebar:
 
-    st.title("âœˆï¸ Aircraft RUL Monitor")
+    st.title("✈️ Aircraft RUL Monitor")
 
     st.markdown("---")
 
-    st.subheader("ðŸ“Œ Project")
+    st.subheader("📌 Project")
 
     st.write(
         "Aircraft Engine Remaining Useful Life "
@@ -449,7 +449,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("ðŸ¤– Model")
+    st.subheader("🤖 Model")
 
     st.write(
         "Random Forest Regressor"
@@ -465,7 +465,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("ðŸ“Š Dataset")
+    st.subheader("📊 Dataset")
 
     st.write(
         "NASA C-MAPSS FD001"
@@ -481,17 +481,17 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.subheader("âš™ï¸ System")
+    st.subheader("⚙️ System")
 
-    st.write("âœ“ RUL Prediction")
+    st.write("✓ RUL Prediction")
 
-    st.write("âœ“ Risk Assessment")
+    st.write("✓ Risk Assessment")
 
-    st.write("âœ“ Sensor Monitoring")
+    st.write("✓ Sensor Monitoring")
 
-    st.write("âœ“ Dataset Explorer")
+    st.write("✓ Dataset Explorer")
 
-    st.write("âœ“ Maintenance Recommendation")
+    st.write("✓ Maintenance Recommendation")
 
 
 # ============================================================
@@ -499,7 +499,7 @@ with st.sidebar:
 # ============================================================
 
 st.title(
-    "âœˆï¸ Aircraft Engine Predictive Maintenance"
+    "✈️ Aircraft Engine Predictive Maintenance"
 )
 
 st.caption(
@@ -509,9 +509,9 @@ st.caption(
 page = st.radio(
     "Navigation",
     [
-        "ðŸ  Prediction Dashboard",
-        "ðŸ“‚ Dataset Explorer",
-        "ðŸ¤– Model Information"
+        "🏠 Prediction Dashboard",
+        "📂 Dataset Explorer",
+        "🤖 Model Information"
     ],
     horizontal=True
 )
@@ -519,14 +519,14 @@ page = st.radio(
 
 # ============================================================
 # ============================================================
-# PAGE 1 â€” PREDICTION DASHBOARD
+# PAGE 1 — PREDICTION DASHBOARD
 # ============================================================
 # ============================================================
 
-if page == "ðŸ  Prediction Dashboard":
+if page == "🏠 Prediction Dashboard":
 
     st.subheader(
-        "ðŸ”§ Current Engine Parameters"
+        "🔧 Current Engine Parameters"
     )
 
     st.write(
@@ -558,9 +558,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "Engine Cycle",
 
-            min_value=0.0,
+            min_value=1.0,
 
-            max_value=500.0,
+            max_value=362.0,
 
             value=104.0,
 
@@ -569,7 +569,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 1 â€“ 362 | Typical: 104"
+            "Range: 1 – 362 | Typical: 104"
         )
 
 
@@ -583,9 +583,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "HPC Outlet Static Pressure (Sensor 11)",
 
-            min_value=0.0,
+            min_value=46.850,
 
-            max_value=100.0,
+            max_value=48.530,
 
             value=47.510,
 
@@ -594,7 +594,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 46.850 â€“ 48.530 | Typical: 47.510"
+            "Range: 46.850 – 48.530 | Typical: 47.510"
         )
 
 
@@ -608,9 +608,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "Physical Core Speed (Sensor 9)",
 
-            min_value=0.0,
+            min_value=9021.730,
 
-            max_value=10000.0,
+            max_value=9244.590,
 
             value=9060.660,
 
@@ -619,7 +619,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 9021.730 â€“ 9244.590 | Typical: 9060.660"
+            "Range: 9021.730 – 9244.590 | Typical: 9060.660"
         )
 
 
@@ -640,9 +640,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "LPT Outlet Temperature (Sensor 4)",
 
-            min_value=0.0,
+            min_value=1382.250,
 
-            max_value=2000.0,
+            max_value=1441.490,
 
             value=1408.040,
 
@@ -651,7 +651,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 1382.250 â€“ 1441.490 | Typical: 1408.040"
+            "Range: 1382.250 – 1441.490 | Typical: 1408.040"
         )
 
 
@@ -665,9 +665,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "Corrected Core Speed (Sensor 14)",
 
-            min_value=0.0,
+            min_value=8099.940,
 
-            max_value=10000.0,
+            max_value=8293.720,
 
             value=8140.540,
 
@@ -676,7 +676,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 8099.940 â€“ 8293.720 | Typical: 8140.540"
+            "Range: 8099.940 – 8293.720 | Typical: 8140.540"
         )
 
 
@@ -690,9 +690,9 @@ if page == "ðŸ  Prediction Dashboard":
 
             "Fuel Flow / Pressure Ratio (Sensor 12)",
 
-            min_value=0.0,
+            min_value=518.690,
 
-            max_value=1000.0,
+            max_value=523.380,
 
             value=521.480,
 
@@ -701,15 +701,9 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.caption(
-            "Range: 518.690 â€“ 523.380 | Typical: 521.480"
+            "Range: 518.690 – 523.380 | Typical: 521.480"
         )
 
-
-    st.info(
-        "Input boxes allow broader values so the app can validate them. "
-        "Prediction is blocked if any value falls outside the observed "
-        "FD001 training-data range shown below each field."
-    )
 
     # ========================================================
     # INPUT VALIDATION RANGES
@@ -732,7 +726,7 @@ if page == "ðŸ  Prediction Dashboard":
 
     predict_button = st.button(
 
-        "ðŸš€ Analyze Engine Condition",
+        "🚀 Analyze Engine Condition",
 
         use_container_width=True
 
@@ -766,19 +760,19 @@ if page == "ðŸ  Prediction Dashboard":
 
             if value < minimum or value > maximum:
                 invalid_inputs.append(
-                    f"ðŸ”´ **{parameter}** = `{value:.3f}` is outside "
-                    f"the observed training range `{minimum:.3f} â€“ {maximum:.3f}`."
+                    f"🔴 **{parameter}** = `{value:.3f}` is outside "
+                    f"the observed training range `{minimum:.3f} – {maximum:.3f}`."
                 )
             else:
                 boundary = (maximum - minimum) * 0.05
                 if value <= minimum + boundary or value >= maximum - boundary:
                     boundary_warnings.append(
-                        f"âš ï¸ **{parameter}** = `{value:.3f}` is close to "
+                        f"⚠️ **{parameter}** = `{value:.3f}` is close to "
                         "the boundary of the observed training range."
                     )
 
         if invalid_inputs:
-            st.error("ðŸš¨ Invalid Parameter Values")
+            st.error("🚨 Invalid Parameter Values")
             st.warning(
                 "One or more entered values are outside the ranges observed "
                 "in the model's training data. The RUL prediction has been "
@@ -788,13 +782,13 @@ if page == "ðŸ  Prediction Dashboard":
             for message in invalid_inputs:
                 st.markdown(message)
             st.info(
-                "ðŸ’¡ Please enter values within the displayed observed ranges "
+                "💡 Please enter values within the displayed observed ranges "
                 "and analyze the engine again."
             )
             st.stop()
 
         if boundary_warnings:
-            st.warning("âš ï¸ Input Boundary Warning")
+            st.warning("⚠️ Input Boundary Warning")
             for message in boundary_warnings:
                 st.markdown(message)
             st.caption(
@@ -885,7 +879,7 @@ if page == "ðŸ  Prediction Dashboard":
 
         prediction_range = (
 
-            f"{round(lower_bound)} â€“ "
+            f"{round(lower_bound)} – "
             f"{round(upper_bound)} cycles"
 
         )
@@ -903,7 +897,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             priority = "Routine"
 
-            icon = "ðŸŸ¢"
+            icon = "🟢"
 
             recommendation = (
 
@@ -949,7 +943,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             priority = "Preventive"
 
-            icon = "ðŸŸ¡"
+            icon = "🟡"
 
             recommendation = (
 
@@ -988,7 +982,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             priority = "Immediate"
 
-            icon = "ðŸ”´"
+            icon = "🔴"
 
             recommendation = (
 
@@ -1096,21 +1090,21 @@ if page == "ðŸ  Prediction Dashboard":
 
                 sensor_status = "Normal"
 
-                sensor_icon = "ðŸŸ¢"
+                sensor_icon = "🟢"
 
 
             elif deviation < 40:
 
                 sensor_status = "Moderate Deviation"
 
-                sensor_icon = "ðŸŸ¡"
+                sensor_icon = "🟡"
 
 
             else:
 
                 sensor_status = "High Deviation"
 
-                sensor_icon = "ðŸ”´"
+                sensor_icon = "🔴"
 
 
             sensor_results.append({
@@ -1148,7 +1142,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.title(
-            "ðŸ“Š Engine Monitoring Dashboard"
+            "📊 Engine Monitoring Dashboard"
         )
 
         st.write(
@@ -1168,7 +1162,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             st.metric(
 
-                "âœˆï¸ Predicted RUL",
+                "✈️ Predicted RUL",
 
                 f"{rul_cycles} cycles"
 
@@ -1190,7 +1184,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             st.metric(
 
-                "âš ï¸ Risk Score",
+                "⚠️ Risk Score",
 
                 f"{risk_score}%"
 
@@ -1201,7 +1195,7 @@ if page == "ðŸ  Prediction Dashboard":
 
             st.metric(
 
-                "ðŸ› ï¸ Maintenance Priority",
+                "🛠️ Maintenance Priority",
 
                 priority
 
@@ -1215,7 +1209,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ”‹ Remaining Engine Life"
+            "🔋 Remaining Engine Life"
         )
 
         st.progress(
@@ -1237,7 +1231,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸŽ¯ Model Prediction Range"
+            "🎯 Model Prediction Range"
         )
 
         range_col1, range_col2 = st.columns(2)
@@ -1323,7 +1317,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ”¬ Sensor Condition Monitoring"
+            "🔬 Sensor Condition Monitoring"
         )
 
         st.write(
@@ -1352,7 +1346,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ› ï¸ Maintenance Recommendation"
+            "🛠️ Maintenance Recommendation"
         )
 
         st.info(
@@ -1371,7 +1365,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ“‹ Current Engine Parameters"
+            "📋 Current Engine Parameters"
         )
 
 
@@ -1424,7 +1418,7 @@ if page == "ðŸ  Prediction Dashboard":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ“ AI Monitoring Summary"
+            "📝 AI Monitoring Summary"
         )
 
 
@@ -1493,7 +1487,7 @@ if page == "ðŸ  Prediction Dashboard":
         )
 
         st.download_button(
-            "ðŸ“¥ Download PDF Report",
+            "📥 Download PDF Report",
             data=pdf_data,
             file_name="aircraft_engine_rul_report.pdf",
             mime="application/pdf",
@@ -1503,14 +1497,14 @@ if page == "ðŸ  Prediction Dashboard":
 
 # ============================================================
 # ============================================================
-# PAGE 2 â€” DATASET EXPLORER
+# PAGE 2 — DATASET EXPLORER
 # ============================================================
 # ============================================================
 
-elif page == "ðŸ“‚ Dataset Explorer":
+elif page == "📂 Dataset Explorer":
 
     st.header(
-        "ðŸ“‚ NASA C-MAPSS FD001 Dataset Explorer"
+        "📂 NASA C-MAPSS FD001 Dataset Explorer"
     )
 
     st.write(
@@ -1671,7 +1665,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ”Ž Dataset Quality"
+            "🔎 Dataset Quality"
         )
 
 
@@ -1721,7 +1715,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ“„ Dataset Preview"
+            "📄 Dataset Preview"
         )
 
         preview_rows = st.slider(
@@ -1759,7 +1753,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ” Explore Individual Engine"
+            "🔍 Explore Individual Engine"
         )
 
         selected_engine = st.selectbox(
@@ -1859,7 +1853,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ§® How RUL Is Calculated"
+            "🧮 How RUL Is Calculated"
         )
 
         st.code(
@@ -1872,7 +1866,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         )
 
         st.info(
-            "RUL = 200 âˆ’ 150 = 50 cycles"
+            "RUL = 200 − 150 = 50 cycles"
         )
 
 
@@ -1883,7 +1877,7 @@ elif page == "ðŸ“‚ Dataset Explorer":
         st.markdown("---")
 
         st.subheader(
-            "ðŸ“‹ Dataset Columns"
+            "📋 Dataset Columns"
         )
 
 
@@ -1963,14 +1957,14 @@ elif page == "ðŸ“‚ Dataset Explorer":
 
 # ============================================================
 # ============================================================
-# PAGE 3 â€” MODEL INFORMATION
+# PAGE 3 — MODEL INFORMATION
 # ============================================================
 # ============================================================
 
 else:
 
     st.header(
-        "ðŸ¤– Machine Learning Model Information"
+        "🤖 Machine Learning Model Information"
     )
 
     st.write(
@@ -1984,7 +1978,7 @@ else:
     # ========================================================
 
     st.subheader(
-        "ðŸŒ³ Model Overview"
+        "🌳 Model Overview"
     )
 
 
@@ -2029,7 +2023,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "ðŸ“Š Dataset"
+        "📊 Dataset"
     )
 
 
@@ -2068,7 +2062,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "âš™ï¸ Data Preprocessing"
+        "⚙️ Data Preprocessing"
     )
 
 
@@ -2094,7 +2088,7 @@ else:
     for step in preprocessing_steps:
 
         st.write(
-            f"âœ“ {step}"
+            f"✓ {step}"
         )
 
 
@@ -2105,7 +2099,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "ðŸ”¢ Model Features"
+        "🔢 Model Features"
     )
 
 
@@ -2134,7 +2128,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "ðŸ“ˆ Model Performance"
+        "📈 Model Performance"
     )
 
 
@@ -2146,7 +2140,7 @@ else:
 
             "Validation RMSE",
 
-            "Validation RÂ²"
+            "Validation R²"
 
         ],
 
@@ -2187,7 +2181,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "ðŸš¦ Engine Condition Rules"
+        "🚦 Engine Condition Rules"
     )
 
 
@@ -2197,7 +2191,7 @@ else:
 
             "> 50 cycles",
 
-            "20 â€“ 50 cycles",
+            "20 – 50 cycles",
 
             "< 20 cycles"
 
@@ -2205,11 +2199,11 @@ else:
 
         "Condition": [
 
-            "ðŸŸ¢ Healthy",
+            "🟢 Healthy",
 
-            "ðŸŸ¡ Warning",
+            "🟡 Warning",
 
-            "ðŸ”´ Critical"
+            "🔴 Critical"
 
         ],
 
@@ -2250,7 +2244,7 @@ else:
     st.markdown("---")
 
     st.subheader(
-        "ðŸ”„ Project Workflow"
+        "🔄 Project Workflow"
     )
 
 
@@ -2259,7 +2253,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
@@ -2267,7 +2261,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
@@ -2275,7 +2269,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
@@ -2283,7 +2277,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
@@ -2291,7 +2285,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
@@ -2299,7 +2293,7 @@ else:
     )
 
     st.write(
-        "â†“"
+        "↓"
     )
 
     st.write(
